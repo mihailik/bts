@@ -12,7 +12,7 @@ module.exports = function (grunt) {
           module: 'amd',
           target: 'es5'
         }
-      }
+      }      
     },
     watch: {
       files: '**/*.ts',
@@ -20,5 +20,5 @@ module.exports = function (grunt) {
     }
   });
 
-  grunt.registerTask('default', ['typescript', 'watch']);
+  grunt.registerTask('default', ['typescript:base', 'watch']);
 }
