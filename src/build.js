@@ -53,29 +53,38 @@ function compileMain() {
         function(txt) {
             console.log('main.js: '+txt);
         },
-        ['--sourcemap']);
+        ['--sourcemap','--module','commonjs']);
 }
 
 function importLatestTsc(txt, callback) {
-    copyTypescriptFile('tsc.js', function() {
-      copyTypescriptFile('lib.d.ts', callback);
+  var files = ['tsc.js', 'typescriptServices.js', 'jquery.d.ts', 'lib.d.ts'];
+  var completeCount = 0;
+  var error = null;
+  files.forEach(function(f) {
+    copyTypescriptFile(f, function(err) {
+      completeCount++;
+      error = error || err;
+      if (completeCount===files.length) {
+        callback(error);
+      }
     });
+  });
 
-    function copyTypescriptFile(f, callback) {
-        copyFile(
-            typescriptRepository+'/bin/'+f,
-            'imports/typescript/'+f,
-            function(error) {
-                if (error) {
-                    console.log('  '+error.message+' '+f);
-                }
-                else {
-                    console.log('  copied '+f);
-                }
-                if (callback)
-                    callback(error);
-            });
-    }
+  function copyTypescriptFile(f, callback) {
+    copyFile(
+      typescriptRepository+'/bin/'+f,
+      'imports/typescript/'+f,
+      function(error) {
+        if (error) {
+          console.log('  '+error.message+' '+f);
+        }
+        else {
+          console.log('  copied '+f);
+        }
+        if (callback)
+          callback(error);
+      });
+  }
 }
 
 function ifExists(f, presentCallback, absentCallback) {
@@ -181,6 +190,7 @@ function runTypeScriptCompiler(src, out, onchanged, more) {
     
     function runCompiler() {
         console.log(scriptFileName+'...');
+      console.log('['+cmdLine+']');
         var childProcess = child_process.execFile('node', cmdLine, function (error, stdout, stderr) {
             if (error) {
                 console.log(src+' '+error);
