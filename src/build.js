@@ -1,4 +1,6 @@
-var typescriptRepository = (process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE) + '/typescript';
+var home = (process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE);
+var typescriptRepository = home + '/typescript';
+var definitelyTypedRepository = home + '/DefinitelyTyped';
 var typescriptRepositoryExists;
 
 var fs = require('fs');
@@ -14,10 +16,12 @@ ifExists(typescriptRepository,
         // recompile typescriptServices.js,
         // copy typescript stuff into imports/typescript
 
-        importLatestTsc('', function() {
+        importLatestTsc(function() {
+          importLatestCodeMirrorTypings(function() {
             recompileTypescriptServices(function() {
               compileMain();
             });
+          });
         });
     },
     function typescriptRepositoryAbsent() {
@@ -56,12 +60,27 @@ function compileMain() {
         ['--sourcemap','--module','commonjs']);
 }
 
-function importLatestTsc(txt, callback) {
-  var files = ['tsc.js', 'typescriptServices.js', 'jquery.d.ts', 'lib.d.ts'];
+function importLatestTsc(callback) {
+  importFiles(
+    typescriptRepository+'/bin/',
+    ['tsc.js', 'typescriptServices.js', 'jquery.d.ts', 'lib.d.ts'],
+    'imports/typescript',
+    callback);
+}
+
+function importLatestCodeMirrorTypings(callback) {
+  importFiles(
+    definitelyTypedRepository+'/codemirror/', 
+    ['codemirror.d.ts'],
+    'typings',
+    callback);
+}
+
+function importFiles(repository, files, targetDir, callback) {
   var completeCount = 0;
   var error = null;
   files.forEach(function(f) {
-    copyTypescriptFile(f, function(err) {
+    continueCopyFile(f, function(err) {
       completeCount++;
       error = error || err;
       if (completeCount===files.length) {
@@ -70,10 +89,10 @@ function importLatestTsc(txt, callback) {
     });
   });
 
-  function copyTypescriptFile(f, callback) {
+  function continueCopyFile(f, callback) {
     copyFile(
-      typescriptRepository+'/bin/'+f,
-      'imports/typescript/'+f,
+      repository+f,
+      targetDir+'/'+f,
       function(error) {
         if (error) {
           console.log('  '+error.message+' '+f);
@@ -86,6 +105,7 @@ function importLatestTsc(txt, callback) {
       });
   }
 }
+
 
 function ifExists(f, presentCallback, absentCallback) {
     fs.exists(f, function(result) {

@@ -15,7 +15,10 @@ declare module brackets {
   function getModule(moduleName: 'language/LanguageManager'): LanguageManager;
   function getModule(moduleName: 'utils/StringUtils'): StringUtils;
 
+  var appFileSystem: FileSystem; 
+
   interface AppInit {
+    appReady(callback: () => void): void;
   }
   
   interface Async {
@@ -35,7 +38,7 @@ declare module brackets {
       implicitChar: string): boolean;
 
     getHints(
-      implicitChar: string): CodeHintProvider.Results;
+      implicitChar: string): any; // either a promise, or CodeHintProvider.Results
 
     insertHint(
       hint: string): boolean;
@@ -54,6 +57,9 @@ declare module brackets {
   }
 
   interface EditorManager {
+  }
+  
+  interface FileSystem {
   }
 
   interface LanguageManager {
