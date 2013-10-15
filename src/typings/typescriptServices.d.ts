@@ -6774,7 +6774,7 @@ declare module TypeScript {
         public hasOwnProperty: T;
         public propertyIsEnumerable: T;
         public isPrototypeOf: T;
-        // function __item[s: string]: T;
+        //function __item[s: string]: T;
         constructor();
     }
     interface IHashTable<T> {

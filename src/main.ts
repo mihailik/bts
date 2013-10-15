@@ -2,7 +2,8 @@
 /// <reference path='typings/brackets.d.ts' />
 
 /// <reference path='TypeScriptCodeHintProvider.ts' />
-/// <reference path='DocumentState.ts' />
+/// <reference path='DocumentScriptSnapshot.ts' />
+/// <reference path='TypeScriptLanguageServiceHost.ts' />
 
 var AppInit = brackets.getModule("utils/AppInit");
 var CodeHintManager = brackets.getModule("editor/CodeHintManager");
@@ -96,4 +97,6 @@ CodeHintManager.registerHintProvider(
 //      0);
 //	});
 
-//export = More;
+var none = {};
+
+export = none;
