@@ -8259,7 +8259,7 @@ declare module TypeScript {
         SomeContainer,
         SomeSignature,
         SomeTypeReference,
-        SomeNamedType,
+        SomeInstantiatableType,
     }
 }
 declare module TypeScript {
@@ -8442,7 +8442,6 @@ declare module TypeScript {
         public docComments(useConstructorAsClass?: boolean): string;
     }
     class PullSignatureSymbol extends PullSymbol {
-        private _specializationCache;
         private _memberTypeParameterNameCache;
         private _stringConstantOverload;
         public parameters: PullSymbol[];
@@ -8460,8 +8459,6 @@ declare module TypeScript {
         public isDefinition(): boolean;
         public isGeneric(): boolean;
         public addParameter(parameter: PullSymbol, isOptional?: boolean): void;
-        public addSpecialization(signature: PullSignatureSymbol, typeArguments: PullTypeSymbol[]): void;
-        public getSpecialization(typeArguments: PullTypeSymbol[]): PullSignatureSymbol;
         public addTypeParameter(typeParameter: PullTypeParameterSymbol): void;
         public getTypeParameters(): PullTypeParameterSymbol[];
         public findTypeParameter(name: string): PullTypeParameterSymbol;
@@ -8471,6 +8468,7 @@ declare module TypeScript {
         static getSignaturesTypeNameEx(signatures: PullSignatureSymbol[], prefix: string, shortform: boolean, brackets: boolean, resolver?: TypeScript.PullTypeResolver, scopeSymbol?: PullSymbol, getPrettyTypeName?: boolean, candidateSignature?: PullSignatureSymbol): TypeScript.MemberName[];
         public toString(resolver?: TypeScript.PullTypeResolver, scopeSymbol?: PullSymbol, useConstraintInName?: boolean): string;
         public getSignatureTypeNameEx(prefix: string, shortform: boolean, brackets: boolean, resolver?: TypeScript.PullTypeResolver, scopeSymbol?: PullSymbol, getParamMarkerInfo?: boolean, getTypeParamMarkerInfo?: boolean): TypeScript.MemberNameArray;
+        public signatureWrapsSomeTypeParameter(typeParameterArgumentMap: TypeScript.PullTypeSubstitutionMap): boolean;
     }
     class PullTypeSymbol extends PullSymbol {
         private _members;
@@ -8597,6 +8595,7 @@ declare module TypeScript {
         public getScopedNameEx(resolver?: TypeScript.PullTypeResolver, scopeSymbol?: PullSymbol, useConstraintInName?: boolean, getPrettyTypeName?: boolean, getTypeParamMarkerInfo?: boolean): TypeScript.MemberName;
         public hasOnlyOverloadCallSignatures(): boolean;
         private getMemberTypeNameEx(topLevel, resolver?, scopeSymbol?, getPrettyTypeName?);
+        public typeWrapsSomeTypeParameter(typeParameterArgumentMap: TypeScript.PullTypeSubstitutionMap): boolean;
     }
     class PullPrimitiveTypeSymbol extends PullTypeSymbol {
         constructor(name: string);
@@ -8800,6 +8799,7 @@ declare module TypeScript {
         private assignableCache;
         private subtypeCache;
         private identicalCache;
+        constructor(compilationSettings: TypeScript.ImmutableCompilationSettings, semanticInfoChain: TypeScript.SemanticInfoChain);
         private cachedArrayInterfaceType();
         public getArrayNamedType(): TypeScript.PullTypeSymbol;
         private cachedNumberInterfaceType();
@@ -8810,7 +8810,6 @@ declare module TypeScript {
         private cachedIArgumentsInterfaceType();
         private cachedRegExpInterfaceType();
         private cachedFunctionArgumentsSymbol();
-        constructor(compilationSettings: TypeScript.ImmutableCompilationSettings, semanticInfoChain: TypeScript.SemanticInfoChain, inTypeCheck?: boolean);
         private setTypeChecked(ast, context);
         private canTypeCheckAST(ast, context);
         private setSymbolForAST(ast, symbol, context);
@@ -9123,6 +9122,8 @@ declare module TypeScript {
         private checkForSuperMemberAccess(expression, name, resolvedName, enclosingDecl, context);
         private checkForPrivateMemberAccess(name, expressionType, resolvedName, enclosingDecl, context);
         private checkForStaticMemberAccess(expression, name, expressionType, resolvedName, enclosingDecl, context);
+        public instantiateType(type: TypeScript.PullTypeSymbol, typeParameterArgumentMap: TypeScript.PullTypeSubstitutionMap, instantiateFunctionTypeParameters?: boolean): TypeScript.PullTypeSymbol;
+        public instantiateSignature(signature: TypeScript.PullSignatureSymbol, typeParameterArgumentMap: TypeScript.PullTypeSubstitutionMap, instantiateFunctionTypeParameters?: boolean): TypeScript.PullSignatureSymbol;
     }
     class TypeComparisonInfo {
         public onlyCaptureFirstError: boolean;
@@ -9167,7 +9168,8 @@ declare module TypeScript {
         private declCache;
         private symbolCache;
         private fileNameToDiagnostics;
-        private binder;
+        private _binder;
+        private _resolver;
         private _topLevelDecls;
         private _fileNames;
         constructor(compiler: TypeScript.TypeScriptCompiler, logger: TypeScript.ILogger);
@@ -9206,6 +9208,7 @@ declare module TypeScript {
         public addDiagnostic(diagnostic: TypeScript.Diagnostic): void;
         public getDiagnostics(fileName: string): TypeScript.Diagnostic[];
         public getBinder(): TypeScript.PullSymbolBinder;
+        public getResolver(): TypeScript.PullTypeResolver;
         public addSyntheticIndexSignature(containingDecl: TypeScript.PullDecl, containingSymbol: TypeScript.PullTypeSymbol, ast: TypeScript.AST, indexParamName: string, indexParamType: TypeScript.PullTypeSymbol, returnType: TypeScript.PullTypeSymbol): void;
         public getDeclForAST(ast: TypeScript.AST): TypeScript.PullDecl;
         public setDeclForAST(ast: TypeScript.AST, decl: TypeScript.PullDecl): void;
@@ -9278,10 +9281,14 @@ declare module TypeScript.PullHelpers {
     function typeSymbolsAreIdentical(a: TypeScript.PullTypeSymbol, b: TypeScript.PullTypeSymbol): boolean;
 }
 declare module TypeScript {
+    interface PullTypeSubstitutionMap {
+        [pullSymbolID: string]: TypeScript.PullTypeSymbol;
+    }
     class PullTypeReferenceSymbol extends TypeScript.PullTypeSymbol {
+        public resolver: TypeScript.PullTypeResolver;
         public referencedTypeSymbol: TypeScript.PullTypeSymbol;
-        static createTypeReference(type: TypeScript.PullTypeSymbol): PullTypeReferenceSymbol;
-        constructor(referencedTypeSymbol: TypeScript.PullTypeSymbol);
+        static createTypeReference(resolver: TypeScript.PullTypeResolver, type: TypeScript.PullTypeSymbol): PullTypeReferenceSymbol;
+        constructor(resolver: TypeScript.PullTypeResolver, referencedTypeSymbol: TypeScript.PullTypeSymbol);
         public isTypeReference(): boolean;
         public isResolved: boolean;
         public setResolved(): void;
@@ -9344,11 +9351,11 @@ declare module TypeScript {
         public findTypeParameter(name: string): TypeScript.PullTypeParameterSymbol;
         public hasOnlyOverloadCallSignatures(): boolean;
     }
-    enum GenerativeTypeKind {
+    enum GenerativeTypeClassification {
         Unknown,
         Open,
         Closed,
-        Generative,
+        InfinitelyExpanding,
     }
     var nSpecializationsCreated: number;
     var nSpecializedSignaturesCreated: number;
@@ -9370,10 +9377,14 @@ declare module TypeScript {
         public isArrayNamedTypeReference(): boolean;
         public getElementType(): TypeScript.PullTypeSymbol;
         public getReferencedTypeSymbol(): TypeScript.PullTypeSymbol;
-        static create(type: TypeScript.PullTypeSymbol, typeParameterArgumentMap: any, instantiateFunctionTypeParameters?: boolean): PullInstantiatedTypeReferenceSymbol;
-        constructor(referencedTypeSymbol: TypeScript.PullTypeSymbol, _typeParameterArgumentMap: any);
+        static create(resolver: TypeScript.PullTypeResolver, type: TypeScript.PullTypeSymbol, typeParameterArgumentMap: {
+            [pullSymbolID: string]: TypeScript.PullTypeSymbol;
+        }, instantiateFunctionTypeParameters?: boolean): PullInstantiatedTypeReferenceSymbol;
+        constructor(resolver: TypeScript.PullTypeResolver, referencedTypeSymbol: TypeScript.PullTypeSymbol, _typeParameterArgumentMap: {
+            [name: string]: TypeScript.PullTypeSymbol;
+        });
         public isGeneric(): boolean;
-        public generativeTypeKind: GenerativeTypeKind;
+        public generativeTypeClassification: GenerativeTypeClassification;
         public getTypeArguments(): TypeScript.PullTypeSymbol[];
         public getTypeArgumentsOrTypeParameters(): TypeScript.PullTypeSymbol[];
         public getMembers(): TypeScript.PullSymbol[];
@@ -9386,8 +9397,7 @@ declare module TypeScript {
         public getIndexSignatures(collectBaseSignatures?: boolean): TypeScript.PullSignatureSymbol[];
         public hasBase(potentialBase: TypeScript.PullTypeSymbol, visited?: TypeScript.PullSymbol[]): boolean;
     }
-    function instantiateType(type: PullTypeSymbol, typeParameterArgumentMap: any, instantiateFunctionTypeParameters?: boolean): PullTypeSymbol;
-    function instantiateSignature(signature: PullSignatureSymbol, typeParameterArgumentMap: any, instantiateFunctionTypeParameters?: boolean): PullSignatureSymbol;
+    function computeGenerativeTypeClassification(type: PullTypeSymbol, typeArguments: PullTypeSymbol[]): GenerativeTypeClassification;
 }
 declare module TypeScript {
     class SyntaxTreeToAstVisitor implements TypeScript.ISyntaxVisitor {
@@ -9591,7 +9601,6 @@ declare module TypeScript {
         static fromDiagnostics(diagnostics: TypeScript.Diagnostic[]): CompileResult;
         static fromOutputFiles(outputFiles: OutputFile[]): CompileResult;
     }
-    var globalResolver: PullTypeResolver;
     class TypeScriptCompiler {
         public logger: TypeScript.ILogger;
         private _settings;
