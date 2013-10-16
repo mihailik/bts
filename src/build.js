@@ -39,25 +39,79 @@ function recompileTypescriptServices(complete) {
   runTypeScriptCompiler(
     typescriptRepository+'/src/services/typescriptServices.ts', 'typings',
     function(txt) {
-      fs.unlink('typings/typescriptServices.js', function(error) {
-        if (error)
-            console.log('TypeScript typings: '+txt+' '+error);
-        else
-            console.log('TypeScript typings: '+txt+' -- cleaned');
-
-        complete();
+      readOriginalText(function(originalText) {
+        var patchedText = originalText.replace(/function __item/,'//function __item');
+        if (patchedText===originalText) {
+          console.log('Bug with typescriptServices.d.ts generation has been fixed by TypeScript team. Please remove the patching code.');
+          deleteGeneratedJs(txt);
+        }
+        else {
+          writePatchedText(patchedText, function() {
+            deleteGeneratedJs(txt);
+          });
+        }
       });
     },
     '--declaration');
+
+  function readOriginalText(success) {
+    fs.readFile('typings/typescriptServices.d.ts', function(error, data) {
+      if (error) {
+        console.log('  Patching typescriptService.d.ts: cannot retrieve raw script for patching '+error);
+        // cannot read the generated file, fail all the way
+        complete(error);
+      }
+      else {
+        success(data ? data +'' : null);
+      }
+    });
+  }
+
+  function writePatchedText(patchedText, success) {
+    fs.writeFile('typings/typescriptServices.d.ts', patchedText, function(error) {
+      if (!error)
+        console.log('  Patching typescriptServices.d.ts: patched TypeScript bug.');
+      else
+        console.log('  Patching typescriptServices.d.ts: patching failed - '+error);
+  
+      // ignore patching failures
+      success();
+    });
+  }
+  
+  function deleteGeneratedJs(txt) {
+    fs.unlink('typings/typescriptServices.js', function(error) {
+      if (error)
+        console.log('TypeScript typings: '+txt+' '+error);
+      else
+        console.log('TypeScript typings: '+txt+' -- cleaned');
+      complete();
+    });
+  }
 }
+
 
 function compileMain() {
     runTypeScriptCompiler(
-        'main.ts', '..',
-        function(txt) {
-            console.log('main.js: '+txt);
-        },
-        ['--sourcemap','--module','commonjs']);
+      'main.ts', null,
+      function(txt) {
+        console.log('main.js: '+txt+' - wrapping in define()...');
+        fs.readFile('../main.js',function(error, data) {
+          if (!error) {
+            var wrappedText = 'define(function(require,exports,module){'+data+'})';
+            fs.writeFile('../main.js',wrappedText,function(error) {
+              if (!error)
+                console.log('main.js: wrapped OK.');
+              else
+                console.log('main.js: writing wrapped script '+error);
+            });
+          }
+          else {
+            console.log('main.js: cannot retrieve raw script for wrapping '+error);
+          }
+        });
+      },
+      [/*'--sourcemap','--module','amd',*/'--outDir','..']);
 }
 
 function importLatestTsc(callback) {
@@ -209,18 +263,18 @@ function runTypeScriptCompiler(src, out, onchanged, more) {
     }
     
     function runCompiler() {
-        console.log(scriptFileName+'...');
+      console.log(scriptFileName+'...');
       console.log('['+cmdLine+']');
-        var childProcess = child_process.execFile('node', cmdLine, function (error, stdout, stderr) {
-            if (error) {
-                console.log(src+' '+error);
-                    if (watching) {
-                        fs.unwatchFile(scriptFileName+'.js',onChanged);
-                        watching = false;
-                    }
-                return;
+      var childProcess = child_process.execFile('node', cmdLine, function (error, stdout, stderr) {
+        if (error) {
+          console.log(src+' '+error);
+            if (watching) {
+              fs.unwatchFile(scriptFileName+'.js',onChanged);
+              watching = false;
             }
-        });
+          return;
+        }
+      });
 
         childProcess.stdout.on('data', function(data) {
            printOutput(data); 

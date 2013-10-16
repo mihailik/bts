@@ -1,112 +1,101 @@
-/// <reference path='typings/typescriptServices.d.ts' />
-/// <reference path='typings/brackets.d.ts' />
-/// <reference path='typings/codemirror.d.ts' />
-var DocumentScriptSnapshot = (function () {
-    function DocumentScriptSnapshot(_doc) {
-        this._doc = _doc;
-    }
-    DocumentScriptSnapshot.prototype.getText = function (start, end) {
-        throw null;
-    };
+define(function(require,exports,module){define(function(require,exports,module){define(function(require,exports,module){define(["require", "exports"], function(require, exports) {
+    /// <reference path='typings/typescriptServices.d.ts' />
+    /// <reference path='typings/brackets.d.ts' />
+    /// <reference path='TypeScriptCodeHintProvider.ts' />
+    /// <reference path='DocumentScriptSnapshot.ts' />
+    /// <reference path='TypeScriptLanguageServiceHost.ts' />
+    var AppInit = brackets.getModule("utils/AppInit");
+    var CodeHintManager = brackets.getModule("editor/CodeHintManager");
+    var Async = brackets.getModule("utils/Async");
+    var StringUtils = brackets.getModule("utils/StringUtils");
+    var LanguageManager = brackets.getModule("language/LanguageManager");
+    var DocumentManager = brackets.getModule("document/DocumentManager");
 
-    DocumentScriptSnapshot.prototype.getLength = function () {
-        throw null;
-    };
+    var llang = LanguageManager.defineLanguage("typescript", {
+        name: "TypeScript",
+        mode: ["javascript", "text/typescript"],
+        fileExtensions: ["ts"],
+        blockComment: ["/*", "*/"],
+        lineComment: "//"
+    });
 
-    DocumentScriptSnapshot.prototype.getLineStartPositions = function () {
-        throw null;
-    };
+    // TODO: remove this
+    var DocumentStateOld = (function () {
+        function DocumentStateOld(doc) {
+            this.doc = doc;
+        }
+        return DocumentStateOld;
+    })();
 
-    DocumentScriptSnapshot.prototype.getTextChangeRangeSinceVersion = function (scriptVersion) {
-        throw null;
-    };
-    return DocumentScriptSnapshot;
-})();
-/// <reference path='typings/typescriptServices.d.ts' />
-/// <reference path='typings/brackets.d.ts' />
-var TypeScriptLanguageServiceHost = (function () {
-    function TypeScriptLanguageServiceHost(_scriptLookup) {
-        this._scriptLookup = _scriptLookup;
-        this._compilationSettings = new TypeScript.CompilationSettings();
-        this._scriptCache = {};
-    }
-    TypeScriptLanguageServiceHost.prototype.getCompilationSettings = function () {
-        return this._compilationSettings;
-    };
+    var TypeScriptCodeHintProvider = (function () {
+        function TypeScriptCodeHintProvider() {
+            this._log = ['init'];
+            this._docCache = {};
+            this._log.push('constructor -- ' + llang.constructor.name);
+        }
+        TypeScriptCodeHintProvider.prototype.hasHints = function (editor, implicitChar) {
+            if (this._editor !== editor) {
+                this._editor = editor;
+                if (this._editor) {
+                    for (var k in this._editor)
+                        if (this._editor.hasOwnProperty(k)) {
+                            this._log.push(' ' + k + '=' + editor[k]);
+                        }
+                }
+            }
 
-    TypeScriptLanguageServiceHost.prototype.getScriptFileNames = function () {
-        return Object.keys(this._scriptCache);
-    };
+            //var doc = this.getDocument(
+            return !implicitChar;
+        };
 
-    TypeScriptLanguageServiceHost.prototype.getScriptVersion = function (fileName) {
-        throw null;
-    };
+        TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
+            var _this = this;
+            var result = $.Deferred();
+            setTimeout(function () {
+                var reverseLog = [];
+                for (var i = 0; i < _this._log.length; i++) {
+                    reverseLog[i] = _this._log[i];
+                }
 
-    TypeScriptLanguageServiceHost.prototype.getScriptIsOpen = function (fileName) {
-        throw null;
-    };
+                result.resolve({
+                    hints: reverseLog,
+                    match: 'wo',
+                    selectInitial: true
+                });
+            }, 500);
 
-    TypeScriptLanguageServiceHost.prototype.getScriptByteOrderMark = function (fileName) {
-        throw null;
-    };
+            return result;
+        };
 
-    TypeScriptLanguageServiceHost.prototype.getScriptSnapshot = function (fileName) {
-        throw null;
-    };
+        TypeScriptCodeHintProvider.prototype.insertHint = function (hint) {
+            this._log.push('insertHint:' + hint);
+            return false;
+        };
 
-    TypeScriptLanguageServiceHost.prototype.getDiagnosticsObject = function () {
-        throw null;
-    };
+        TypeScriptCodeHintProvider.prototype.getDocument = function (path) {
+            var result = this._docCache[path];
+            if (!result) {
+                var doc = DocumentManager.getDocumentForPath(path);
+                this._docCache[path] = result = new DocumentStateOld(doc);
+            }
+            return result;
+        };
+        return TypeScriptCodeHintProvider;
+    })();
+    var sn = DocumentScriptSnapshot;
 
-    TypeScriptLanguageServiceHost.prototype.getLocalizedDiagnosticMessages = function () {
-        throw null;
-    };
+    CodeHintManager.registerHintProvider(new TypeScriptCodeHintProvider(), ['typescript'], 0);
 
-    // TypeScript.ILogger
-    TypeScriptLanguageServiceHost.prototype.information = function () {
-        throw null;
-    };
+    //  AppInit.appReady(function () {
+    //    CodeHintManager.registerHintProvider(
+    //      new TypeScriptCodeHintProvider(),
+    //      ['TypeScript'],
+    //      0);
+    //	});
+    var none = {};
 
-    TypeScriptLanguageServiceHost.prototype.debug = function () {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.warning = function () {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.error = function () {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.fatal = function () {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.log = function (s) {
-        throw null;
-    };
-
-    // TypeScript.IReferenceResolverHost
-    // getScriptSnapshot overlaps between IReferenceResolverHost and ILanguageServiceHost
-    //  getScriptSnapshot(fileName: string): TypeScript.IScriptSnapshot {
-    //    throw null;
-    //  }
-    TypeScriptLanguageServiceHost.prototype.resolveRelativePath = function (path, directory) {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.fileExists = function (path) {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.directoryExists = function (path) {
-        throw null;
-    };
-
-    TypeScriptLanguageServiceHost.prototype.getParentDirectory = function (path) {
-        throw null;
-    };
-    return TypeScriptLanguageServiceHost;
-})();
+    
+    return none;
+});
 //# sourceMappingURL=main.js.map
+})})})

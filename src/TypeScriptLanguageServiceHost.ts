@@ -1,14 +1,28 @@
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 
+/// <reference path='DocumentState.ts' />
+
 class TypeScriptLanguageServiceHost
   implements Services.ILanguageServiceHost {
     
     private _compilationSettings = new TypeScript.CompilationSettings();
     
-    private _scriptCache: { [file: string]: TypeScript.IScriptSnapshot; } = {};
+    private _scriptCache: any = {};
 
-  constructor(private _scriptLookup: (file: string) => TypeScript.IScriptSnapshot) {
+  constructor(private _scriptLookup: (file: string) => DocumentScriptSnapshot) {
+  }
+
+  private _getScript(file: string): DocumentState {
+    var result = this._scriptCache[file];
+    if (result)
+      return result;
+
+    result = this._scriptLookup(file);
+    if (result)
+      this._scriptCache[file] = result;
+
+    return result;
   }
 
   getCompilationSettings(): TypeScript.CompilationSettings {
@@ -20,27 +34,33 @@ class TypeScriptLanguageServiceHost
   }
 
   getScriptVersion(fileName: string): number {
-    throw null;
+    var script = this._getScript(fileName);
+    return script.getVersion();
   }
 
   getScriptIsOpen(fileName: string): boolean {
-    throw null;
+    return this._getScript(fileName) !== null;
   }
 
   getScriptByteOrderMark(fileName: string): ByteOrderMark {
-    throw null;
+    return ByteOrderMark.None;
   }
 
   getScriptSnapshot(fileName: string): TypeScript.IScriptSnapshot {
-    throw null;
+    var script = this._getScript(fileName);
+    if (script)
+      return script.getSnapshot();
+    else
+      return null;
   }
 
   getDiagnosticsObject(): Services.ILanguageServicesDiagnostics {
-    throw null;
+    // TODO: differention ILogger.log from ILanguageServiceDiagnostics.log
+    return this;
   }
 
   getLocalizedDiagnosticMessages(): any {
-    throw null;
+    return null;
   }
 
 

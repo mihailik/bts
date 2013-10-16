@@ -4,7 +4,7 @@
 
 class DocumentScriptSnapshot implements TypeScript.IScriptSnapshot {
   
-  constructor(private _doc: CodeMirror.Doc) {
+  constructor() {
   }
 
   getText(start: number, end: number): string {

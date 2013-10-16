@@ -20,7 +20,8 @@ var llang = LanguageManager.defineLanguage("typescript", {
     lineComment: "//"
 });
 
-class DocumentState {
+// TODO: remove this
+class DocumentStateOld {
   constructor(public doc) {
   }
 }
@@ -75,15 +76,16 @@ class TypeScriptCodeHintProvider {
     return false;
   }
 
-  getDocument(path: string): DocumentState {
-    var result: DocumentState = this._docCache[path];
+  getDocument(path: string): DocumentStateOld {
+    var result: DocumentStateOld = this._docCache[path];
     if (!result) {
       var doc = DocumentManager.getDocumentForPath(path);
-      this._docCache[path] = result = new DocumentState(doc);
+      this._docCache[path] = result = new DocumentStateOld(doc);
     }
     return result;
   }
 }
+var sn = DocumentScriptSnapshot;
 
 CodeHintManager.registerHintProvider(
   new TypeScriptCodeHintProvider(),
@@ -97,6 +99,6 @@ CodeHintManager.registerHintProvider(
 //      0);
 //	});
 
-var none = {};
+// var none = {};
 
-export = none;
+// export = none;
