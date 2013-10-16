@@ -9,29 +9,62 @@ var child_process = require('child_process');
 
 ifExists(typescriptRepository,
     function typescriptRepositoryPresent() {
-        typescriptRepositoryExists = true;
-        console.log('TypeScript repository detected at '+typescriptRepository+', using tsc.js from there.');
+      typescriptRepositoryExists = true;
+      console.log('TypeScript repository detected at '+typescriptRepository+', using tsc.js from there.');
 
-        // use external typescript compiler rather than one in imports/typescript,
-        // recompile typescriptServices.js,
-        // copy typescript stuff into imports/typescript
+      // use external typescript compiler rather than one in imports/typescript,
+      // recompile typescriptServices.js,
+      // copy typescript stuff into imports/typescript
 
-        importLatestTsc(function() {
-          importLatestCodeMirrorTypings(function() {
-            recompileTypescriptServices(function() {
-              compileMain();
+      importLatestTsc(function() {
+        ifExists(definitelyTypedRepository,
+          function() {
+            console.log('DefiniteyTyped repository is found, copying CodeMirror typings');
+            importLatestCodeMirrorTypings(function() {
+              recompileTypescriptServices(function() {
+                compileMain();
+              });
+            },
+            function() {
+              recompileTypescriptServices(function() {
+                compileMain();
+              });
             });
-          });
         });
+      });
+      
+      function compileProject() {
+        var firstTypescriptServicesCompile = true;
+        recompileTypescriptServices(function() {
+          if (firstTypescriptServicesCompile) {
+            firstTypescriptServicesCompile = false;
+            compileMain();
+          }
+        });
+      }
     },
     function typescriptRepositoryAbsent() {
         typescriptRepositoryExists = false;
         console.log('TypeScript repository is not found at '+typescriptRepository+', using tsc.js from imports/typescript.');
+      
+        ifExists(definitelyTypedRepository,
+          function() {
+            console.log('DefiniteyTyped repository is found, copying CodeMirror typings');
+            importLatestCodeMirrorTypings(function() {
 
-        // use typescript compiler from imports/typescript,
-        // also DO NOT recompile typescriptServices.js
-
-        compileMain();
+              // use typescript compiler from imports/typescript,
+              // also DO NOT recompile typescriptServices.js
+      
+              compileMain();
+            });
+          },
+          function() {
+            // use typescript compiler from imports/typescript,
+            // also DO NOT recompile typescriptServices.js
+    
+            compileMain();
+          });
+                                          
     });
 
 function recompileTypescriptServices(complete) {
@@ -93,25 +126,11 @@ function recompileTypescriptServices(complete) {
 
 function compileMain() {
     runTypeScriptCompiler(
-      'main.ts', null,
+      'main.ts', '..',
       function(txt) {
-        console.log('main.js: '+txt+' - wrapping in define()...');
-        fs.readFile('../main.js',function(error, data) {
-          if (!error) {
-            var wrappedText = 'define(function(require,exports,module){'+data+'})';
-            fs.writeFile('../main.js',wrappedText,function(error) {
-              if (!error)
-                console.log('main.js: wrapped OK.');
-              else
-                console.log('main.js: writing wrapped script '+error);
-            });
-          }
-          else {
-            console.log('main.js: cannot retrieve raw script for wrapping '+error);
-          }
-        });
+        console.log('main.js: '+txt);
       },
-      [/*'--sourcemap','--module','amd',*/'--outDir','..']);
+      [/*'--sourcemap','--module','amd',*/]);
 }
 
 function importLatestTsc(callback) {
@@ -226,15 +245,17 @@ function runTypeScriptCompiler(src, out, onchanged, more) {
             cmdLine = cmdLine.concat(more);
     }
 
-    var elasticWatchTimeoutMsec = 2000;
+    var elasticWatchTimeoutMsec = 200;
 
     var watching;
     var changeQueued = null;
     
     if (onchanged) {
+        var ignoreChanges = false;
         var onChanged = function(statBefore,statAfter) {
             if (changeQueued)
                 clearTimeout(changeQueued);
+
             var changedText = statBefore?
                 (statAfter?'changed':'deleted') :
                 (statAfter?'created':'does not exist');
@@ -249,6 +270,9 @@ function runTypeScriptCompiler(src, out, onchanged, more) {
                         fs.unwatchFile(scriptFileName+'.js',onChanged);
                         watching = false;
                     }
+                  
+                    if (changeQueued)
+                        clearTimeout(changeQueued);
                     changeQueued = null;
 
                 });
