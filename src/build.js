@@ -126,9 +126,9 @@ function recompileTypescriptServices(complete) {
 
 function compileMain() {
     runTypeScriptCompiler(
-      'main.ts', '..',
+      'src.ts', '..',
       function(txt) {
-        console.log('main.js: '+txt);
+        console.log('src.js: '+txt);
       },
       [/*'--sourcemap','--module','amd',*/]);
 }
