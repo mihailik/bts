@@ -121,12 +121,29 @@ function recompileTypescriptServices(complete) {
 
 
 function compileMain() {
-    runTypeScriptCompiler(
-      'src.ts', '..',
-      function(txt) {
-        console.log('src.js: '+txt);
-      },
-      [/*'--sourcemap','--module','amd',*/]);
+  var lastWrapped = null;
+  runTypeScriptCompiler(
+    'main.ts', '..',
+    function(txt) {
+      fs.readFile('../main.js', function(error,data) {
+        if (error) {
+          console.log('main.js ['+error.message+']: '+txt);
+          return;
+        }
+
+        var rawOutput = data+'';
+        var prefix = 'define(function(require,exports,module){';
+        var suffix = '})';
+        if (rawOutput!==lastWrapped) {
+          console.log('main.js: '+txt+'...');
+          lastWrapped = prefix+rawOutput+suffix;
+          fs.writeFile('../main.js', lastWrapped, function() {
+            console.log('main.js: wrapped');
+          });
+        }
+      });
+    },
+    ['--sourcemap'/*,'--module','amd',*/]);
 }
 
 function importLatestTsc(callback) {
@@ -284,7 +301,7 @@ function runTypeScriptCompiler(src, out, onchanged, more) {
     
     function runCompiler() {
       console.log(scriptFileName+'...');
-      console.log('['+cmdLine+']');
+      console.log(' TypeScript >>> '+cmdLine.join(' '));
       var childProcess = child_process.execFile('node', cmdLine, function (error, stdout, stderr) {
         if (error) {
           console.log(src+' '+error);
