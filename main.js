@@ -377,8 +377,8 @@ var StringUtils = brackets.getModule('utils/StringUtils');
 var LanguageManager = brackets.getModule('language/LanguageManager');
 var DocumentManager = brackets.getModule('document/DocumentManager');
 
-console.log("require('imports/typescript/typescriptServices');...");
-require('imports/typescript/typescriptServices');
+console.log("require('src/imports/typescript/typescriptServices');...");
+require('src/imports/typescript/typescriptServices');
 
 var llang = LanguageManager.defineLanguage("typescript", {
     name: "TypeScript",
