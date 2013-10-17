@@ -21,14 +21,10 @@ ifExists(typescriptRepository,
           function() {
             console.log('DefiniteyTyped repository is found, copying CodeMirror typings');
             importLatestCodeMirrorTypings(function() {
-              recompileTypescriptServices(function() {
-                compileMain();
-              });
+              compileProject();
             },
             function() {
-              recompileTypescriptServices(function() {
-                compileMain();
-              });
+              compileProject();
             });
         });
       });

@@ -7664,8 +7664,15 @@ declare module TypeScript {
         public nameIndex: number;
         public childMappings: SourceMapping[];
     }
-    interface SourceMapEmitterCallback {
-        (emittedFile: string, emittedLine: number, emittedColumn: number, sourceFile: string, sourceLine: number, sourceColumn: number, sourceName: string): void;
+    class SourceMapEntry {
+        public emittedFile: string;
+        public emittedLine: number;
+        public emittedColumn: number;
+        public sourceFile: string;
+        public sourceLine: number;
+        public sourceColumn: number;
+        public sourceName: string;
+        constructor(emittedFile: string, emittedLine: number, emittedColumn: number, sourceFile: string, sourceLine: number, sourceColumn: number, sourceName: string);
     }
     class SourceMapper {
         private jsFile;
@@ -7680,12 +7687,13 @@ declare module TypeScript {
         private allSourceMappings;
         public currentMappings: SourceMapping[][];
         public currentNameIndex: number[];
+        private sourceMapEntries;
         constructor(jsFile: TypeScript.TextWriter, sourceMapOut: TypeScript.TextWriter, document: TypeScript.Document, jsFilePath: string, emitOptions: TypeScript.EmitOptions, resolvePath: (path: string) => string);
         public getOutputFile(): TypeScript.OutputFile;
         public setNewSourceFile(document: TypeScript.Document, emitOptions: TypeScript.EmitOptions): void;
         private setSourceMapOptions(document, jsFilePath, emitOptions, resolvePath);
         private setNewSourceFilePath(document, emitOptions);
-        public emitSourceMapping(sourceMapEmitterCallback: SourceMapEmitterCallback): void;
+        public emitSourceMapping(): void;
     }
 }
 declare module TypeScript {
@@ -7707,7 +7715,6 @@ declare module TypeScript {
     }
     class EmitOptions {
         public resolvePath: (path: string) => string;
-        public sourceMapEmitterCallback: TypeScript.SourceMapEmitterCallback;
         private _diagnostic;
         private _settings;
         private _commonDirectoryPath;
@@ -7722,7 +7729,7 @@ declare module TypeScript {
         public sourceMapRootDirectory(): string;
         public outputDirectory(): string;
         public compilationSettings(): TypeScript.ImmutableCompilationSettings;
-        constructor(compiler: TypeScript.TypeScriptCompiler, resolvePath: (path: string) => string, sourceMapEmitterCallback: TypeScript.SourceMapEmitterCallback);
+        constructor(compiler: TypeScript.TypeScriptCompiler, resolvePath: (path: string) => string);
         private determineCommonDirectoryPath(compiler);
     }
     class Indenter {
@@ -8470,7 +8477,9 @@ declare module TypeScript {
         public toString(scopeSymbol?: PullSymbol, useConstraintInName?: boolean): string;
         public getSignatureTypeNameEx(prefix: string, shortform: boolean, brackets: boolean, scopeSymbol?: PullSymbol, getParamMarkerInfo?: boolean, getTypeParamMarkerInfo?: boolean): TypeScript.MemberNameArray;
         public wrapsSomeTypeParameter(typeParameterArgumentMap: TypeScript.PullTypeSubstitutionMap): boolean;
-        public wrapsSomeNestedType(typeBeingWrapped: PullTypeSymbol, isNested: boolean): boolean;
+        public wrapsSomeNestedType(typeBeingWrapped: PullTypeSymbol, isNested: boolean, knownWrapMap: {
+            [symbolID: string]: boolean;
+        }): boolean;
     }
     class PullTypeSymbol extends PullSymbol {
         private _members;
@@ -8521,6 +8530,7 @@ declare module TypeScript {
         public isTypeVariable(): boolean;
         public isError(): boolean;
         public isEnum(): boolean;
+        public getTypeParameterArgumentMap(): TypeScript.PullTypeSubstitutionMap;
         public isObject(): boolean;
         public getKnownBaseTypeCount(): number;
         public resetKnownBaseTypeCount(): void;
@@ -8596,8 +8606,10 @@ declare module TypeScript {
         private getMemberTypeNameEx(topLevel, scopeSymbol?, getPrettyTypeName?);
         public getGenerativeTypeClassification(enclosingType: PullTypeSymbol): TypeScript.GenerativeTypeClassification;
         public wrapsSomeTypeParameter(typeParameterArgumentMap: TypeScript.PullTypeSubstitutionMap): boolean;
-        public wrapsSomeNestedType(typeBeingWrapped: PullTypeSymbol, isCheckingNestedType: boolean): boolean;
-        private _wrapSomeNestedTypeWorker(typeBeingWrapped, isCheckingNestedType);
+        public wrapsSomeNestedType(typeBeingWrapped: PullTypeSymbol, isCheckingNestedType: boolean, knownWrapMap: {
+            [symbolID: string]: boolean;
+        }): boolean;
+        private _wrapSomeNestedTypeWorker(typeBeingWrapped, isCheckingNestedType, knownWrapMap);
     }
     class PullPrimitiveTypeSymbol extends PullTypeSymbol {
         constructor(name: string);
@@ -8746,9 +8758,10 @@ declare module TypeScript {
     class PullTypeResolutionContext {
         private resolver;
         public inTypeCheck: boolean;
+        public fileName: string;
         private contextStack;
         public instantiatingTypesToAny: boolean;
-        constructor(resolver: TypeScript.PullTypeResolver, inTypeCheck?: boolean);
+        constructor(resolver: TypeScript.PullTypeResolver, inTypeCheck?: boolean, fileName?: string);
         public pushContextualType(type: TypeScript.PullTypeSymbol, provisional: boolean, substitutions: any): void;
         public popContextualType(): PullContextualTypeContext;
         public hasProvisionalErrors(): boolean;
@@ -8824,7 +8837,7 @@ declare module TypeScript {
         public getVisibleDecls(enclosingDecl: TypeScript.PullDecl): TypeScript.PullDecl[];
         public getVisibleContextSymbols(enclosingDecl: TypeScript.PullDecl, context: TypeScript.PullTypeResolutionContext): TypeScript.PullSymbol[];
         public getVisibleMembersFromExpression(expression: TypeScript.AST, enclosingDecl: TypeScript.PullDecl, context: TypeScript.PullTypeResolutionContext): TypeScript.PullSymbol[];
-        private createPrototypeSymbol(constructorTypeSymbol);
+        private createPrototypeSymbol(constructorTypeSymbol, context);
         private isAnyOrEquivalent(type);
         private resolveExternalModuleReference(idText, currentFileName);
         public resolveDeclaredSymbol(symbol: TypeScript.PullSymbol, context?: TypeScript.PullTypeResolutionContext): TypeScript.PullSymbol;
@@ -9089,7 +9102,7 @@ declare module TypeScript {
         public instantiateTypeToAny(typeToSpecialize: TypeScript.PullTypeSymbol, context: TypeScript.PullTypeResolutionContext): TypeScript.PullTypeSymbol;
         public instantiateSignatureToObject(signatureToSpecialize: TypeScript.PullSignatureSymbol): TypeScript.PullSignatureSymbol;
         static globalTypeCheckPhase: number;
-        static typeCheck(compilationSettings: TypeScript.ImmutableCompilationSettings, semanticInfoChain: TypeScript.SemanticInfoChain, scriptName: string, script: TypeScript.Script): void;
+        static typeCheck(compilationSettings: TypeScript.ImmutableCompilationSettings, semanticInfoChain: TypeScript.SemanticInfoChain, script: TypeScript.Script): void;
         private validateVariableDeclarationGroups(enclosingDecl, context);
         private typeCheckFunctionOverloads(funcDecl, context, signature?, allSignatures?);
         private checkSymbolPrivacy(declSymbol, symbol, privacyErrorReporter);
@@ -9385,10 +9398,9 @@ declare module TypeScript {
         public getElementType(): TypeScript.PullTypeSymbol;
         public getReferencedTypeSymbol(): TypeScript.PullTypeSymbol;
         static create(resolver: TypeScript.PullTypeResolver, type: TypeScript.PullTypeSymbol, typeParameterArgumentMap: PullTypeSubstitutionMap, instantiateFunctionTypeParameters?: boolean): PullInstantiatedTypeReferenceSymbol;
-        constructor(resolver: TypeScript.PullTypeResolver, referencedTypeSymbol: TypeScript.PullTypeSymbol, _typeParameterArgumentMap: {
-            [name: string]: TypeScript.PullTypeSymbol;
-        });
+        constructor(resolver: TypeScript.PullTypeResolver, referencedTypeSymbol: TypeScript.PullTypeSymbol, _typeParameterArgumentMap: PullTypeSubstitutionMap);
         public isGeneric(): boolean;
+        public getTypeParameterArgumentMap(): PullTypeSubstitutionMap;
         public getTypeArguments(): TypeScript.PullTypeSymbol[];
         public getTypeArgumentsOrTypeParameters(): TypeScript.PullTypeSymbol[];
         public getMembers(): TypeScript.PullSymbol[];
@@ -9557,14 +9569,6 @@ declare module TypeScript {
     var ioHostDirectoryNameTime: number;
     var ioHostCreateDirectoryStructureTime: number;
     var ioHostWriteFileTime: number;
-    interface PullTypeInfoAtPositionInfo {
-        symbol: TypeScript.PullSymbol;
-        ast: TypeScript.IAST;
-        enclosingScopeSymbol: TypeScript.PullSymbol;
-        candidateSignature: TypeScript.PullSignatureSymbol;
-        callSignatures: TypeScript.PullSignatureSymbol[];
-        isConstructorCall: boolean;
-    }
     interface PullSymbolInfo {
         symbol: TypeScript.PullSymbol;
         aliasSymbol: TypeScript.PullTypeAliasSymbol;
@@ -9597,7 +9601,8 @@ declare module TypeScript {
         public writeByteOrderMark: boolean;
         public text: string;
         public fileType: OutputFileType;
-        constructor(name: string, writeByteOrderMark: boolean, text: string, fileType: OutputFileType);
+        public sourceMapEntries: TypeScript.SourceMapEntry[];
+        constructor(name: string, writeByteOrderMark: boolean, text: string, fileType: OutputFileType, sourceMapEntries?: TypeScript.SourceMapEntry[]);
     }
     class CompileResult {
         public diagnostics: TypeScript.Diagnostic[];
@@ -9624,15 +9629,15 @@ declare module TypeScript {
         public _shouldEmitDeclarations(script?: TypeScript.Script): boolean;
         private emitDocumentDeclarationsWorker(document, emitOptions, declarationEmitter?);
         public _emitDocumentDeclarations(document: TypeScript.Document, emitOptions: TypeScript.EmitOptions, onSingleFileEmitComplete: (files: OutputFile) => void, sharedEmitter: TypeScript.DeclarationEmitter): TypeScript.DeclarationEmitter;
-        public emitAllDeclarations(resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback): EmitOutput;
-        public emitDeclarations(fileName: string, resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback): EmitOutput;
+        public emitAllDeclarations(resolvePath: (path: string) => string): EmitOutput;
+        public emitDeclarations(fileName: string, resolvePath: (path: string) => string): EmitOutput;
         static mapToFileNameExtension(extension: string, fileName: string, wholeFileNameReplaced: boolean): string;
         static mapToJSFileName(fileName: string, wholeFileNameReplaced: boolean): string;
         private emitDocumentWorker(document, emitOptions, emitter?);
         public _emitDocument(document: TypeScript.Document, emitOptions: TypeScript.EmitOptions, onSingleFileEmitComplete: (files: OutputFile[]) => void, sharedEmitter: TypeScript.Emitter): TypeScript.Emitter;
-        public emitAll(resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback): EmitOutput;
-        public emit(fileName: string, resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback): EmitOutput;
-        public compile(resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback, continueOnDiagnostics?: boolean): TypeScript.Iterator<CompileResult>;
+        public emitAll(resolvePath: (path: string) => string): EmitOutput;
+        public emit(fileName: string, resolvePath: (path: string) => string): EmitOutput;
+        public compile(resolvePath: (path: string) => string, continueOnDiagnostics?: boolean): TypeScript.Iterator<CompileResult>;
         public getSyntacticDiagnostics(fileName: string): TypeScript.Diagnostic[];
         /** Used for diagnostics in tests */
         private getSyntaxTree(fileName);
@@ -9640,7 +9645,6 @@ declare module TypeScript {
         public getSemanticDiagnostics(fileName: string): TypeScript.Diagnostic[];
         public resolveAllFiles(): void;
         public getSymbolOfDeclaration(decl: TypeScript.PullDecl): TypeScript.PullSymbol;
-        public getTypeInfoAtPosition(pos: number, document: TypeScript.Document): PullTypeInfoAtPositionInfo;
         private extractResolutionContextFromAST(resolver, ast, document, propagateContextualTypes);
         private extractResolutionContextForVariable(inContextuallyTypedAssignment, propagateContextualTypes, resolver, resolutionContext, enclosingDecl, assigningAST, init);
         private getASTPath(ast);
@@ -10471,8 +10475,8 @@ declare module Services {
         public pullGetDeclInformation(decl: TypeScript.PullDecl, ast: TypeScript.AST, document: TypeScript.Document): TypeScript.PullSymbolInfo;
         public topLevelDeclaration(fileName: string): TypeScript.PullDecl;
         public getDeclForAST(ast: TypeScript.AST): TypeScript.PullDecl;
-        public emit(fileName: string, resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback): TypeScript.EmitOutput;
-        public emitDeclarations(fileName: string, resolvePath: (path: string) => string, sourceMapEmitterCallback?: TypeScript.SourceMapEmitterCallback): TypeScript.EmitOutput;
+        public emit(fileName: string, resolvePath: (path: string) => string): TypeScript.EmitOutput;
+        public emitDeclarations(fileName: string, resolvePath: (path: string) => string): TypeScript.EmitOutput;
     }
 }
 declare module Services {

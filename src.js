@@ -27,14 +27,23 @@ var DocumentScriptSnapshot = (function () {
 /// <reference path='DocumentScriptSnapshot.ts' />
 var DocumentState = (function () {
     function DocumentState(_doc) {
+        var _this = this;
         this._doc = _doc;
+        this._version = 0;
+        CodeMirror.on(_doc, 'change', function (instance, change) {
+            return _this._onChange(change);
+        });
     }
     DocumentState.prototype.getVersion = function () {
-        throw null;
+        return this._version;
     };
 
     DocumentState.prototype.getSnapshot = function () {
         throw null;
+    };
+
+    DocumentState.prototype._onChange = function (change) {
+        this._version++;
     };
     return DocumentState;
 })();
@@ -44,8 +53,16 @@ var DocumentState = (function () {
 var TypeScriptLanguageServiceHost = (function () {
     function TypeScriptLanguageServiceHost(_scriptLookup) {
         this._scriptLookup = _scriptLookup;
+        this.logLevels = {
+            information: true,
+            debug: true,
+            warning: true,
+            error: true,
+            fatal: true
+        };
         this._compilationSettings = new TypeScript.CompilationSettings();
         this._scriptCache = {};
+        this._logLines = [];
     }
     TypeScriptLanguageServiceHost.prototype._getScript = function (file) {
         var result = this._scriptCache[file];
@@ -99,27 +116,27 @@ var TypeScriptLanguageServiceHost = (function () {
 
     // TypeScript.ILogger
     TypeScriptLanguageServiceHost.prototype.information = function () {
-        throw null;
+        return this.logLevels.information;
     };
 
     TypeScriptLanguageServiceHost.prototype.debug = function () {
-        throw null;
+        return this.logLevels.debug;
     };
 
     TypeScriptLanguageServiceHost.prototype.warning = function () {
-        throw null;
+        return this.logLevels.warning;
     };
 
     TypeScriptLanguageServiceHost.prototype.error = function () {
-        throw null;
+        return this.logLevels.error;
     };
 
     TypeScriptLanguageServiceHost.prototype.fatal = function () {
-        throw null;
+        return this.logLevels.fatal;
     };
 
     TypeScriptLanguageServiceHost.prototype.log = function (s) {
-        throw null;
+        this._logLines.push(s);
     };
 
     // TypeScript.IReferenceResolverHost
@@ -128,21 +145,212 @@ var TypeScriptLanguageServiceHost = (function () {
     //    throw null;
     //  }
     TypeScriptLanguageServiceHost.prototype.resolveRelativePath = function (path, directory) {
-        throw null;
+        var unQuotedPath = TypeScript.stripStartAndEndQuotes(path);
+        var normalizedPath;
+
+        if (TypeScript.isRooted(unQuotedPath) || !directory) {
+            normalizedPath = unQuotedPath;
+        } else {
+            normalizedPath = directory + '/' + unQuotedPath;
+        }
+
+        normalizedPath = TypeScript.switchToForwardSlashes(normalizedPath);
+
+        return normalizedPath;
     };
 
     TypeScriptLanguageServiceHost.prototype.fileExists = function (path) {
-        throw null;
+        var script = this._getScript(path);
+        return script ? true : false;
     };
 
     TypeScriptLanguageServiceHost.prototype.directoryExists = function (path) {
-        throw null;
+        return true;
     };
 
     TypeScriptLanguageServiceHost.prototype.getParentDirectory = function (path) {
-        throw null;
+        var normalizedPath = TypeScript.stripStartAndEndQuotes(path);
+        normalizedPath = TypeScript.switchToForwardSlashes(normalizedPath);
+
+        var lastSlash = normalizedPath[normalizedPath.length - 1] ? normalizedPath.lastIndexOf('/', normalizedPath.length - 2) : normalizedPath.lastIndexOf('/');
+
+        if (lastSlash > 1)
+            return normalizedPath.slice(0, lastSlash - 1);
+        else
+            return '/';
     };
     return TypeScriptLanguageServiceHost;
+})();
+/// <reference path='typings/typescriptServices.d.ts' />
+var TypeScriptService = (function () {
+    function TypeScriptService() {
+        var _this = this;
+        this.logLevels = {
+            information: true,
+            debug: true,
+            warning: true,
+            error: true,
+            fatal: true
+        };
+        this.compilationSettings = new TypeScript.CompilationSettings();
+        this.resolveScript = null;
+        this._scriptCache = {};
+        this._requestedFiles = {};
+        this._requestContinuations = [];
+        var factory = new Services.TypeScriptServicesFactory();
+        factory.createPullLanguageService({
+            getCompilationSettings: function () {
+                return _this.compilationSettings;
+            },
+            getScriptFileNames: function () {
+                return Object.keys(_this._scriptCache);
+            },
+            getScriptVersion: function (fileName) {
+                var script = _this._getScript(fileName);
+                if (script && script.getVersion)
+                    return script.getVersion();
+                else
+                    return -1;
+            },
+            getScriptIsOpen: function (fileName) {
+                return _this._scriptCache[fileName] ? true : false;
+            },
+            getScriptByteOrderMark: function (fileName) {
+                return 0 /* None */;
+            },
+            getScriptSnapshot: function (fileName) {
+                var script = _this._getScript(fileName);
+                if (script && script.getSnapshot)
+                    return script.getSnapshot();
+                else
+                    return null;
+            },
+            getDiagnosticsObject: function () {
+                return { log: function (text) {
+                        return _this._log(text);
+                    } };
+            },
+            getLocalizedDiagnosticMessages: function () {
+                return null;
+            },
+            information: function () {
+                return _this.logLevels.information;
+            },
+            debug: function () {
+                return _this.logLevels.debug;
+            },
+            warning: function () {
+                return _this.logLevels.warning;
+            },
+            error: function () {
+                return _this.logLevels.error;
+            },
+            fatal: function () {
+                return _this.logLevels.fatal;
+            },
+            log: function (text) {
+                return _this._log(text);
+            },
+            resolveRelativePath: function (path) {
+                return path;
+            },
+            fileExists: function (path) {
+                // don't issue a full resolve,
+                // this might be a mere probe for a file
+                return _this._scriptCache[path] ? true : false;
+            },
+            directoryExists: function (path) {
+                return true;
+            },
+            getParentDirectory: function (path) {
+                path = TypeScript.switchToForwardSlashes(path);
+                var slashPos = path.lastIndexOf('/');
+                if (slashPos === path.length - 1)
+                    slashPos = path.lastIndexOf('/', path.length - 2);
+                if (slashPos > 0)
+                    return path.slice(0, slashPos);
+                else
+                    return '/';
+            }
+        });
+    }
+    TypeScriptService.prototype.getCompletionsAtPosition = function (file, position, isMemberCompletion) {
+        //
+        return null;
+    };
+
+    TypeScriptService.prototype._log = function (text) {
+        console.log(text);
+    };
+
+    TypeScriptService.prototype._getScript = function (fileName) {
+        var _this = this;
+        var script = this._scriptCache[fileName];
+        var resolveResult = this.resolveScript ? this.resolveScript(fileName) : null;
+        if (!resolveResult)
+            return null;
+        if (resolveResult.getSnapshot) {
+            this._scriptCache[fileName] = resolveResult;
+            return resolveResult;
+        } else {
+            this._requestedFiles[fileName] = true;
+            resolveResult.done(function (script) {
+                delete _this._requestedFiles[fileName];
+                if (Object.keys(_this._requestedFiles).length == 0) {
+                    if (_this._requestContinuations.length) {
+                        var continuations = _this._requestContinuations;
+                        _this._requestContinuations = [];
+                        for (var i = 0; i < continuations.length; i++) {
+                            var co = continuations[i];
+                            co();
+                        }
+                    }
+                }
+            });
+        }
+
+        if (script)
+            return script;
+
+        return null;
+    };
+    return TypeScriptService;
+})();
+/// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/brackets.d.ts' />
+/// <reference path='TypeScriptLanguageServiceHost.ts' />
+/// <reference path='TypeScriptService.ts' />
+var TypeScriptCodeHintProvider = (function () {
+    function TypeScriptCodeHintProvider(_documentManager) {
+        this._documentManager = _documentManager;
+        this._languageHost = new TypeScriptLanguageServiceHost(function (file) {
+            return null;
+        }); //this._createDocumentState(file));
+
+        var factory = new Services.TypeScriptServicesFactory();
+
+        this._languageService = factory.createPullLanguageService(this._languageHost);
+    }
+    TypeScriptCodeHintProvider.prototype.hasHints = function (editor, implicitChar) {
+        if (this._editor !== editor) {
+            this._editor = editor;
+        }
+
+        return !implicitChar;
+    };
+
+    TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
+        return null;
+    };
+
+    TypeScriptCodeHintProvider.prototype.insertHint = function (hint) {
+        return false;
+    };
+
+    TypeScriptCodeHintProvider.prototype._createDocumentState = function (file) {
+        return null;
+    };
+    return TypeScriptCodeHintProvider;
 })();
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
@@ -172,61 +380,4 @@ var DocumentStateOld = (function () {
     return DocumentStateOld;
 })();
 
-var TypeScriptCodeHintProvider = (function () {
-    function TypeScriptCodeHintProvider() {
-        this._log = ['init'];
-        this._docCache = {};
-        this._log.push('constructor -- ' + llang.constructor.name);
-    }
-    TypeScriptCodeHintProvider.prototype.hasHints = function (editor, implicitChar) {
-        if (this._editor !== editor) {
-            this._editor = editor;
-            if (this._editor) {
-                for (var k in this._editor)
-                    if (this._editor.hasOwnProperty(k)) {
-                        this._log.push(' ' + k + '=' + editor[k]);
-                    }
-            }
-        }
-
-        //var doc = this.getDocument(
-        return !implicitChar;
-    };
-
-    TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
-        var _this = this;
-        var result = $.Deferred();
-        setTimeout(function () {
-            var reverseLog = [];
-            for (var i = 0; i < _this._log.length; i++) {
-                reverseLog[i] = _this._log[i];
-            }
-
-            result.resolve({
-                hints: reverseLog,
-                match: 'wo',
-                selectInitial: true
-            });
-        }, 500);
-
-        return result;
-    };
-
-    TypeScriptCodeHintProvider.prototype.insertHint = function (hint) {
-        this._log.push('insertHint:' + hint);
-        return false;
-    };
-
-    TypeScriptCodeHintProvider.prototype.getDocument = function (path) {
-        var result = this._docCache[path];
-        if (!result) {
-            var doc = DocumentManager.getDocumentForPath(path);
-            this._docCache[path] = result = new DocumentStateOld(doc);
-        }
-        return result;
-    };
-    return TypeScriptCodeHintProvider;
-})();
-var sn = DocumentScriptSnapshot;
-
-CodeHintManager.registerHintProvider(new TypeScriptCodeHintProvider(), ['typescript'], 0);
+CodeHintManager.registerHintProvider(new TypeScriptCodeHintProvider(DocumentManager), ['typescript'], 0);
