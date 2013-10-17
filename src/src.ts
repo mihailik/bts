@@ -5,12 +5,16 @@
 /// <reference path='DocumentScriptSnapshot.ts' />
 /// <reference path='TypeScriptLanguageServiceHost.ts' />
 
-var AppInit = brackets.getModule("utils/AppInit");
-var CodeHintManager = brackets.getModule("editor/CodeHintManager");
-var Async = brackets.getModule("utils/Async");
-var StringUtils = brackets.getModule("utils/StringUtils");
-var LanguageManager = brackets.getModule("language/LanguageManager");
-var DocumentManager = brackets.getModule("document/DocumentManager");
+var AppInit = brackets.getModule('utils/AppInit');
+var CodeHintManager = brackets.getModule('editor/CodeHintManager');
+var Async = brackets.getModule('utils/Async');
+var StringUtils = brackets.getModule('utils/StringUtils');
+var LanguageManager = brackets.getModule('language/LanguageManager');
+var DocumentManager = brackets.getModule('document/DocumentManager');
+
+declare var require;
+console.log("require('imports/typescript/typescriptServices');...");
+require('imports/typescript/typescriptServices');
 
 var llang = LanguageManager.defineLanguage("typescript", {
     name: "TypeScript",
@@ -19,13 +23,6 @@ var llang = LanguageManager.defineLanguage("typescript", {
     blockComment: ["/*", "*/"],
     lineComment: "//"
 });
-
-// TODO: remove this
-class DocumentStateOld {
-  constructor(public doc) {
-  }
-}
-
 
 CodeHintManager.registerHintProvider(
   new TypeScriptCodeHintProvider(DocumentManager),

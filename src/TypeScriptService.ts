@@ -17,10 +17,12 @@ class TypeScriptService {
   private _scriptCache: any = {};
   private _requestedFiles: any = {};
   private _requestContinuations: { (): void; }[] = [];
+  
+  private _service: Services.ILanguageService;
 
   constructor() {
     var factory = new Services.TypeScriptServicesFactory();
-    factory.createPullLanguageService({
+    this._service = factory.createPullLanguageService({
       getCompilationSettings: () => this.compilationSettings,
       getScriptFileNames: () => Object.keys(this._scriptCache),
       getScriptVersion: (fileName: string) => {
@@ -73,8 +75,24 @@ class TypeScriptService {
     file: string,
     position: number,
     isMemberCompletion: boolean): JQueryPromise {
-    //
-    return null;
+        
+    var promise = $.Deferred(); 
+    
+    function attempt() {
+      var result = this._service.getCompletionsAtPosition(
+        file, position, isMemberCompletion);
+
+      if (this._requestedFiles.length==0) {
+        promise.resolve(result);
+      }
+      else {
+        this._requestContinuations.push(attempt);
+      }
+    }
+
+    attempt();
+
+    return promise;
   }
 
   private _log(text: string): void {

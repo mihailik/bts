@@ -198,7 +198,7 @@ var TypeScriptService = (function () {
         this._requestedFiles = {};
         this._requestContinuations = [];
         var factory = new Services.TypeScriptServicesFactory();
-        factory.createPullLanguageService({
+        this._service = factory.createPullLanguageService({
             getCompilationSettings: function () {
                 return _this.compilationSettings;
             },
@@ -275,8 +275,21 @@ var TypeScriptService = (function () {
         });
     }
     TypeScriptService.prototype.getCompletionsAtPosition = function (file, position, isMemberCompletion) {
-        //
-        return null;
+        var promise = $.Deferred();
+
+        function attempt() {
+            var result = this._service.getCompletionsAtPosition(file, position, isMemberCompletion);
+
+            if (this._requestedFiles.length == 0) {
+                promise.resolve(result);
+            } else {
+                this._requestContinuations.push(attempt);
+            }
+        }
+
+        attempt();
+
+        return promise;
     };
 
     TypeScriptService.prototype._log = function (text) {
@@ -357,12 +370,15 @@ var TypeScriptCodeHintProvider = (function () {
 /// <reference path='TypeScriptCodeHintProvider.ts' />
 /// <reference path='DocumentScriptSnapshot.ts' />
 /// <reference path='TypeScriptLanguageServiceHost.ts' />
-var AppInit = brackets.getModule("utils/AppInit");
-var CodeHintManager = brackets.getModule("editor/CodeHintManager");
-var Async = brackets.getModule("utils/Async");
-var StringUtils = brackets.getModule("utils/StringUtils");
-var LanguageManager = brackets.getModule("language/LanguageManager");
-var DocumentManager = brackets.getModule("document/DocumentManager");
+var AppInit = brackets.getModule('utils/AppInit');
+var CodeHintManager = brackets.getModule('editor/CodeHintManager');
+var Async = brackets.getModule('utils/Async');
+var StringUtils = brackets.getModule('utils/StringUtils');
+var LanguageManager = brackets.getModule('language/LanguageManager');
+var DocumentManager = brackets.getModule('document/DocumentManager');
+
+console.log("require('imports/typescript/typescriptServices');...");
+require('imports/typescript/typescriptServices');
 
 var llang = LanguageManager.defineLanguage("typescript", {
     name: "TypeScript",
@@ -371,13 +387,5 @@ var llang = LanguageManager.defineLanguage("typescript", {
     blockComment: ["/*", "*/"],
     lineComment: "//"
 });
-
-// TODO: remove this
-var DocumentStateOld = (function () {
-    function DocumentStateOld(doc) {
-        this.doc = doc;
-    }
-    return DocumentStateOld;
-})();
 
 CodeHintManager.registerHintProvider(new TypeScriptCodeHintProvider(DocumentManager), ['typescript'], 0);
