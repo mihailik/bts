@@ -88,14 +88,14 @@ declare module brackets {
      *     it must return a jQuery promise that is resolved when the command completes. Otherwise, the
      *     CommandManager will assume it is synchronous, and return a promise that is already resolved.
      */
-    register(name: string, id: string, commandFn: Function): CommandManager.Command;
+    register(name: string, id: string, commandFn: Function): brackets.Command;
 
-    registerInternal(id: string, commandFn: Function): CommandManager.Command;
+    registerInternal(id: string, commandFn: Function): brackets.Command;
 
     /**
      * Retrieves a Command object by id
      */
-    get(id: string): CommandManager.Command;
+    get(id: string): brackets.Command;
     
     /**
      * Returns the ids of all registered commands
@@ -112,53 +112,51 @@ declare module brackets {
 
   }
 
-  module CommandManager {
+  /**
+   * Events:
+   *      enabledStateChange
+   *      checkedStateChange
+   *      keyBindingAdded
+   *      keyBindingRemoved
+   */
+  interface Command {
+    getId(): string;
+    
     /**
-     * Events:
-     *      enabledStateChange
-     *      checkedStateChange
-     *      keyBindingAdded
-     *      keyBindingRemoved
+     * Executes the command. Additional arguments are passed to the executing function
+     *
+     * @return a jQuery promise that will be resolved when the command completes.
      */
-    interface Command {
-      getId(): string;
-      
-      /**
-       * Executes the command. Additional arguments are passed to the executing function
-       *
-       * @return a jQuery promise that will be resolved when the command completes.
-       */
-      execute(...args: any[]): JQueryPromise;
+    execute(...args: any[]): JQueryPromise;
 
-      getEnabled(): boolean;
+    getEnabled(): boolean;
 
-      /**
-       * Sets enabled state of Command and dispatches "enabledStateChange"
-       * when the enabled state changes.
-       */
-      setEnabled(enabled: boolean);
+    /**
+     * Sets enabled state of Command and dispatches "enabledStateChange"
+     * when the enabled state changes.
+     */
+    setEnabled(enabled: boolean);
 
-      getChecked(): boolean;
-      
-      /**
-       * Sets enabled state of Command and dispatches "checkedStateChange"
-       * when the enabled state changes.
-       */
-      setChecked(checked: boolean);
+    getChecked(): boolean;
+    
+    /**
+     * Sets enabled state of Command and dispatches "checkedStateChange"
+     * when the enabled state changes.
+     */
+    setChecked(checked: boolean);
 
-      getName(): string;
+    getName(): string;
 
-      /**
-       * Sets the name of the Command and dispatches "nameChange" so that
-       * UI that reflects the command name can update.
-       *
-       * Note, a Command name can appear in either HTML or native UI
-       * so HTML tags should not be used. To add a Unicode character,
-       * use \uXXXX instead of an HTML entity.
-       */
-      setName(name: string);
+    /**
+     * Sets the name of the Command and dispatches "nameChange" so that
+     * UI that reflects the command name can update.
+     *
+     * Note, a Command name can appear in either HTML or native UI
+     * so HTML tags should not be used. To add a Unicode character,
+     * use \uXXXX instead of an HTML entity.
+     */
+    setName(name: string);
 
-    }
   }
 
   interface DocumentManager {
@@ -229,7 +227,7 @@ declare module brackets {
      * The FileEntry for this document. Need not lie within the project.
      * If Document is untitled, this is an InaccessibleFileEntry object.
      */
-    file: NativeFileSystem.FileEntry;
+    file: FileEntry;
 
     /**
      * The Language for this document. Will be resolved by file extension in the constructor
@@ -982,22 +980,22 @@ declare module brackets {
     /**
      * Retrieves the Menu object for the corresponding id. 
      */
-    getMenu(id: string): brackets.Menus.Menu;
+    getMenu(id: string): brackets.Menu;
 
     /**
      * Retrieves the map of all Menu objects.
      */
-    getAllMenus(): { [name: string]: brackets.Menus.Menu; };
+    getAllMenus(): { [name: string]: brackets.Menu; };
 
     /**
      * Retrieves the ContextMenu object for the corresponding id. 
      */
-    getContextMenu(id: string): brackets.Menus.ContextMenu;
+    getContextMenu(id: string): brackets.ContextMenu;
 
     /**
      * Retrieves the MenuItem object for the corresponding id. 
      */
-    getMenuItem(id: string): Menus.MenuItem;
+    getMenuItem(id: string): brackets.MenuItem;
 
     /**
      * Closes all menus that are open
@@ -1019,7 +1017,7 @@ declare module brackets {
      * 
      * @return the newly created Menu
      */
-    addMenu(name: string, id: string, position?: string, relativeID?: string): brackets.Menus.Menu;
+    addMenu(name: string, id: string, position?: string, relativeID?: string): brackets.Menu;
 
     /**
      * Removes a top-level menu from the application menu bar which may be native or HTML-based.
@@ -1055,160 +1053,159 @@ declare module brackets {
      *      Extensions should use the following format: "author.myextension.mycontextmenu name"
      * @return the newly created context menu
      */
-    registerContextMenu(id: string): brackets.Menus.ContextMenu;
+    registerContextMenu(id: string): brackets.ContextMenu;
 
   }
 
-  module Menus {
+  /**
+   * Menu represents a top-level menu in the menu bar. A Menu may correspond to an HTML-based
+   * menu or a native menu if Brackets is running in a native application shell. 
+   * 
+   * Since menus may have a native implementation clients should create Menus through 
+   * addMenu() and should NOT construct a Menu object directly. 
+   * Clients should also not access HTML content of a menu directly and instead use
+   * the Menu API to query and modify menus.
+   */
+  interface Menu {
+    /**
+     * Removes the specified menu item from this Menu. Key bindings are unaffected; use KeyBindingManager
+     * directly to remove key bindings if desired.
+     * @param command - command the menu would execute if we weren't deleting it.
+     */
+    removeMenuItem(command: string);
+    /**
+     * Removes the specified menu item from this Menu. Key bindings are unaffected; use KeyBindingManager
+     * directly to remove key bindings if desired.
+     * @param command - command the menu would execute if we weren't deleting it.
+     */
+    removeMenuItem(command: brackets.Command);
 
     /**
-     * Menu represents a top-level menu in the menu bar. A Menu may correspond to an HTML-based
-     * menu or a native menu if Brackets is running in a native application shell. 
+     * Adds a new menu item with the specified id and display text. The insertion position is
+     * specified via the relativeID and position arguments which describe a position 
+     * relative to another MenuItem or MenuGroup. It is preferred that plug-ins 
+     * insert new  MenuItems relative to a menu section rather than a specific 
+     * MenuItem (see Menu Section Constants).
+     *
+     * TODO: Sub-menus are not yet supported, but when they are implemented this API will
+     * allow adding new MenuItems to sub-menus as well.
+     *
+     * Note, keyBindings are bound to Command objects not MenuItems. The provided keyBindings
+     *      will be bound to the supplied Command object rather than the MenuItem.
      * 
-     * Since menus may have a native implementation clients should create Menus through 
-     * addMenu() and should NOT construct a Menu object directly. 
-     * Clients should also not access HTML content of a menu directly and instead use
-     * the Menu API to query and modify menus.
+     * @param command - the command the menu will execute.
+     *      Pass Menus.DIVIDER for a menu divider, or just call addMenuDivider() instead.
+     * @param keyBindings - register one
+     *      one or more key bindings to associate with the supplied command.
+     * @param position - constant defining the position of new MenuItem relative to
+     *      other MenuItems. Values:
+     *          - With no relativeID, use Menus.FIRST or LAST (default is LAST)
+     *          - Relative to a command id, use BEFORE or AFTER (required)
+     *          - Relative to a MenuSection, use FIRST_IN_SECTION or LAST_IN_SECTION (required)
+     * @param relativeID - command id OR one of the MenuSection.* constants. Required
+     *      for all position constants except FIRST and LAST.
+     *
+     * @return the newly created MenuItem
      */
-    interface Menu {
-      /**
-       * Removes the specified menu item from this Menu. Key bindings are unaffected; use KeyBindingManager
-       * directly to remove key bindings if desired.
-       * @param command - command the menu would execute if we weren't deleting it.
-       */
-      removeMenuItem(command: string);
-      /**
-       * Removes the specified menu item from this Menu. Key bindings are unaffected; use KeyBindingManager
-       * directly to remove key bindings if desired.
-       * @param command - command the menu would execute if we weren't deleting it.
-       */
-      removeMenuItem(command: brackets.CommandManager.Command);
+    addMenuItem(
+      command: string,
+      keyBindings: {key: string; platform: string; }[],
+      position: string,
+      relativeID: string): brackets.MenuItem;
 
-      /**
-       * Adds a new menu item with the specified id and display text. The insertion position is
-       * specified via the relativeID and position arguments which describe a position 
-       * relative to another MenuItem or MenuGroup. It is preferred that plug-ins 
-       * insert new  MenuItems relative to a menu section rather than a specific 
-       * MenuItem (see Menu Section Constants).
-       *
-       * TODO: Sub-menus are not yet supported, but when they are implemented this API will
-       * allow adding new MenuItems to sub-menus as well.
-       *
-       * Note, keyBindings are bound to Command objects not MenuItems. The provided keyBindings
-       *      will be bound to the supplied Command object rather than the MenuItem.
-       * 
-       * @param command - the command the menu will execute.
-       *      Pass Menus.DIVIDER for a menu divider, or just call addMenuDivider() instead.
-       * @param keyBindings - register one
-       *      one or more key bindings to associate with the supplied command.
-       * @param position - constant defining the position of new MenuItem relative to
-       *      other MenuItems. Values:
-       *          - With no relativeID, use Menus.FIRST or LAST (default is LAST)
-       *          - Relative to a command id, use BEFORE or AFTER (required)
-       *          - Relative to a MenuSection, use FIRST_IN_SECTION or LAST_IN_SECTION (required)
-       * @param relativeID - command id OR one of the MenuSection.* constants. Required
-       *      for all position constants except FIRST and LAST.
-       *
-       * @return the newly created MenuItem
-       */
-      addMenuItem(
-        command: string,
-        keyBindings: {key: string; platform: string; }[],
-        position: string,
-        relativeID: string): brackets.Menus.MenuItem;
-
-      addMenuItem(
-        command: brackets.CommandManager.Command,
-        keyBindings: {key: string; platform: string; }[],
-        position: string,
-        relativeID: string): brackets.Menus.MenuItem;
-
-      /**
-       * Inserts divider item in menu.
-       * @param position - constant defining the position of new the divider relative
-       *      to other MenuItems. Default is LAST.  (see Insertion position constants). 
-       * @param relativeID - id of menuItem, sub-menu, or menu section that the new 
-       *      divider will be positioned relative to. Required for all position constants
-       *      except FIRST and LAST
-       * @return the newly created divider
-       */
-      addMenuDivider(position?: string, relativeID?: string): brackets.Menus.MenuItem;
-
-      /**
-       * Gets the Command associated with a MenuItem
-       */
-      getCommand(): brackets.CommandManager.Command;
-
-      /**
-       * Returns the parent Menu for this MenuItem
-       */
-      getParentMenu(): brackets.Menus.Menu;
-
-    }
+    addMenuItem(
+      command: brackets.Command,
+      keyBindings: {key: string; platform: string; }[],
+      position: string,
+      relativeID: string): brackets.MenuItem;
 
     /**
-     * Represents a context menu that can open at a specific location in the UI. 
-     *
-     * Clients should not create this object directly and should instead use registerContextMenu()
-     * to create new ContextMenu objects.
-     *
-     * Context menus in brackets may be HTML-based or native so clients should not reach into
-     * the HTML and should instead manipulate ContextMenus through the API.
-     *
-     * Events:
-     *      beforeContextMenuOpen
+     * Inserts divider item in menu.
+     * @param position - constant defining the position of new the divider relative
+     *      to other MenuItems. Default is LAST.  (see Insertion position constants). 
+     * @param relativeID - id of menuItem, sub-menu, or menu section that the new 
+     *      divider will be positioned relative to. Required for all position constants
+     *      except FIRST and LAST
+     * @return the newly created divider
      */
-    interface ContextMenu extends Menu {
-      /**
-       * Displays the ContextMenu at the specified location and dispatches the 
-       * "beforeContextMenuOpen" event.The menu location may be adjusted to prevent
-       * clipping by the browser window. All other menus and ContextMenus will be closed
-       * bofore a new menu is shown.
-       *
-       * @param mouseOrLocation - pass a MouseEvent
-       *      to display the menu near the mouse or pass in an object with page x/y coordinates
-       *      for a specific location.
-       */
-      open(mouseOrLocation: MouseEvent);
-      open(mouseOrLocation:{pageX:number; pageY:number;});
-
-      /**
-       * Closes the context menu.
-       */
-      close();
-    }
+    addMenuDivider(position?: string, relativeID?: string): brackets.MenuItem;
 
     /**
-     * MenuItem represents a single menu item that executes a Command or a menu divider. MenuItems
-     * may have a sub-menu. A MenuItem may correspond to an HTML-based
-     * menu item or a native menu item if Brackets is running in a native application shell
-     *
-     * Since MenuItems may have a native implementation clients should create MenuItems through 
-     * addMenuItem() and should NOT construct a MenuItem object directly. 
-     * Clients should also not access HTML content of a menu directly and instead use
-     * the MenuItem API to query and modify menus items.
-     *
-     * MenuItems are views on to Command objects so modify the underlying Command to modify the
-     * name, enabled, and checked state of a MenuItem. The MenuItem will update automatically
+     * Gets the Command associated with a MenuItem
      */
-    interface MenuItem {
-      id: string;
-      isDivider: boolean;
+    getCommand(): brackets.Command;
 
-      /**
-       * {string|Command} command - the Command this MenuItem will reflect.
-       *                                   Use DIVIDER to specify a menu divider
-       */
-      command: any;
-    }
+    /**
+     * Returns the parent Menu for this MenuItem
+     */
+    getParentMenu(): brackets.Menu;
+
+  }
+
+  /**
+   * Represents a context menu that can open at a specific location in the UI. 
+   *
+   * Clients should not create this object directly and should instead use registerContextMenu()
+   * to create new ContextMenu objects.
+   *
+   * Context menus in brackets may be HTML-based or native so clients should not reach into
+   * the HTML and should instead manipulate ContextMenus through the API.
+   *
+   * Events:
+   *      beforeContextMenuOpen
+   */
+  interface ContextMenu extends Menu {
+    /**
+     * Displays the ContextMenu at the specified location and dispatches the 
+     * "beforeContextMenuOpen" event.The menu location may be adjusted to prevent
+     * clipping by the browser window. All other menus and ContextMenus will be closed
+     * bofore a new menu is shown.
+     *
+     * @param mouseOrLocation - pass a MouseEvent
+     *      to display the menu near the mouse or pass in an object with page x/y coordinates
+     *      for a specific location.
+     */
+    open(mouseOrLocation: MouseEvent);
+    open(mouseOrLocation:{pageX:number; pageY:number;});
+
+    /**
+     * Closes the context menu.
+     */
+    close();
+  }
+
+  /**
+   * MenuItem represents a single menu item that executes a Command or a menu divider. MenuItems
+   * may have a sub-menu. A MenuItem may correspond to an HTML-based
+   * menu item or a native menu item if Brackets is running in a native application shell
+   *
+   * Since MenuItems may have a native implementation clients should create MenuItems through 
+   * addMenuItem() and should NOT construct a MenuItem object directly. 
+   * Clients should also not access HTML content of a menu directly and instead use
+   * the MenuItem API to query and modify menus items.
+   *
+   * MenuItems are views on to Command objects so modify the underlying Command to modify the
+   * name, enabled, and checked state of a MenuItem. The MenuItem will update automatically
+   */
+  interface MenuItem {
+    id: string;
+    isDivider: boolean;
+
+    /**
+     * {string|Command} command - the Command this MenuItem will reflect.
+     *                                   Use DIVIDER to specify a menu divider
+     */
+    command: any;
   }
 
 
   interface StringUtils {
   }
-}
+
   
-declare module NativeFileSystem {
+  interface NativeFileSystem {
+  }
+
   interface FileEntry {
     fullPath: string;
   }
