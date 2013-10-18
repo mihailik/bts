@@ -347,7 +347,45 @@ declare module brackets {
 
   }
 
+  /**
+   * EditorManager owns the UI for the editor area. This essentially mirrors the 'current document'
+   * property maintained by DocumentManager's model.
+   *
+   * Note that there is a little bit of unusual overlap between EditorManager and DocumentManager:
+   * because the Document state is actually stored in the CodeMirror editor UI, DocumentManager is
+   * not a pure headless model. Each Document encapsulates an editor instance, and thus EditorManager
+   * must have some knowledge about Document's internal state (we access its _editor property).
+   *
+   * This module dispatches the following events:
+   *    - activeEditorChange --  Fires after the active editor (full or inline) changes and size/visibility
+   *                             are complete. Doesn't fire when editor temporarily loses focus to a non-editor
+   *                             control (e.g. search toolbar or modal dialog, or window deactivation). Does
+   *                             fire when focus moves between inline editor and its full-size container.
+   *                             This event tracks getActiveEditor() changes, while DocumentManager's
+   *                             currentDocumentChange tracks getCurrentFullEditor() changes.
+   *                             The 2nd arg to the listener is which Editor became active; the 3rd arg is
+   *                             which Editor is deactivated as a result. Either one may be null.
+   *                             NOTE (#1257): getFocusedEditor() sometimes lags behind this event. Listeners
+   *                             should use the arguments or call getActiveEditor() to reliably see which Editor 
+   *                             just gained focus.
+   */
   interface EditorManager {
+    REFRESH_FORCE: string;
+    REFRESH_SKIP: string;
+    
+    setEditorHolder;
+    getCurrentFullEditor;
+    createInlineEditorForDocument;
+    focusEditor;
+    getFocusedEditor;
+    getActiveEditor;
+    getFocusedInlineWidget;
+    resizeEditor;
+    registerInlineEditProvider;
+    registerInlineDocsProvider;
+    registerJumpToDefProvider;
+    getInlineEditors;
+    closeInlineWidget;
   }
   
   interface FileSystem {
