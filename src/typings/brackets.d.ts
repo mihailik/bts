@@ -797,6 +797,66 @@ declare module brackets {
 
   }
 
+  module Editor {
+    /**
+     * Sets whether to use tab characters (vs. spaces) when inserting new text. Affects all Editors.
+     */
+    function setUseTabChar(value: boolean);
+
+    /** Gets whether all Editors use tab characters (vs. spaces) when inserting new text */
+    function getUseTabChar();
+
+    /**
+     * Sets tab character width. Affects all Editors.
+     */
+    function setTabSize(value: number);
+
+    /** Get indent unit  */
+    function getTabSize(): number;
+
+    /**
+     * Sets indentation width. Affects all Editors.
+     */
+    function setSpaceUnits(value: number);
+
+    /** Get indentation width */
+    function getSpaceUnits(): number;
+
+    /**
+     * Sets the auto close brackets. Affects all Editors.
+     */
+    function setCloseBrackets(value: boolean);
+
+    /** Gets whether all Editors use auto close brackets */
+    function getCloseBrackets(): boolean;
+
+    /**
+     * Sets show line numbers option and reapply it to all open editors.
+     */
+    function setShowLineNumbers(value: boolean);
+
+        
+    /** Returns true if show line numbers is enabled for all editors */
+    function getShowLineNumbers(): boolean;
+
+    /**
+     * Sets show active line option and reapply it to all open editors.
+     */
+    function setShowActiveLine(value: boolean);
+
+    /** Returns true if show active line is enabled for all editors */
+    function getShowActiveLine(): boolean;
+
+    /**
+     * Sets word wrap option and reapply it to all open editors.
+     */
+    function setWordWrap(value: boolean);
+
+    /** Returns true if word wrap is enabled for all editors */
+    function getWordWrap(): boolean;
+
+  }
+
   interface InlineWidget {
   }
   
