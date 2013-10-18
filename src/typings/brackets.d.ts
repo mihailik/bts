@@ -522,7 +522,279 @@ declare module brackets {
  *    $(editorInstance).on("eventname", handler);
  */
   interface Editor {
+
+    document: brackets.Document;
+
+    /**
+     * Removes this editor from the DOM and detaches from the Document. If this is the "master"
+     * Editor that is secretly providing the Document's backing state, then the Document reverts to
+     * a read-only string-backed mode.
+     */
+    destroy();
+
+    /** 
+     * Selects all text and maintains the current scroll position.
+     */
+    selectAllNoScroll();
+
+    /** @return True if editor is not showing the entire text of the document (i.e. an inline editor) */
+    isTextSubset(): boolean;
+
+    /**
+     * Gets the current cursor position within the editor. If there is a selection, returns whichever
+     * end of the range the cursor lies at.
+     * @param expandTabs  If true, return the actual visual column number instead of the character offset in
+     *      the "ch" property.
+     */
+    getCursorPos(expandTabs: boolean): {line: number;ch:number;};
+
+    /**
+     * Returns the display column (zero-based) for a given string-based pos. Differs from pos.ch only
+     * when the line contains preceding \t chars. Result depends on the current tab size setting.
+     */
+    getColOffset(pos: {line:number;ch:number;}): number;
+
+    /**
+     * Sets the cursor position within the editor. Removes any selection.
+     * @param line  The 0 based line number.
+     * @param ch  The 0 based character position; treated as 0 if unspecified.
+     * @param center  True if the view should be centered on the new cursor position.
+     * @param expandTabs  If true, use the actual visual column number instead of the character offset as
+     *      the "ch" parameter.
+     */
+    setCursorPos(line: number, ch: number, center: boolean, expandTabs: boolean);
+
+    /**
+     * Set the editor size in pixels or percentage
+     * @param width (number|string)
+     * @param height (number|string)
+     */
+    setSize(width: any, height: any);
+
+    /**
+     * Scrolls the editor viewport to vertically center the line with the cursor,
+     * but only if the cursor is currently near the edges of the viewport or
+     * entirely outside the viewport.
+     *
+     * This does not alter the horizontal scroll position.
+     *
+     * @param centerOptions Option value, or 0 for no options.
+     */
+    centerOnCursor(centerOptions: number);
+
+    /**
+     * Given a position, returns its index within the text (assuming \n newlines)
+     * @param {!{line:number, ch:number}}
+     * @return {number}
+     */
+    indexFromPos(coords: {line:number;ch:number;}): number;
+
+    /**
+     * Returns true if pos is between start and end (INclusive at start; EXclusive at end by default,
+     * but overridable via the endInclusive flag).
+     */
+    posWithinRange(
+      pos: {line:number;ch:number;},
+      start: {line:number;ch:number;},
+      end: {line:number;ch:number;},
+      endInclusive: boolean);
+
+    /**
+     * @return True if there's a text selection; false if there's just an insertion point
+     */
+    hasSelection(): boolean;
+
+    /**
+     * Gets the current selection. Start is inclusive, end is exclusive. If there is no selection,
+     * returns the current cursor position as both the start and end of the range (i.e. a selection
+     * of length zero).
+     */
+    getSelection(): {start:{line:number;ch:number;}; end:{line:number;ch:number;};};
+
+    /**
+     * @return The currently selected text, or "" if no selection. Includes \n if the
+     * selection spans multiple lines (does NOT reflect the Document's line-endings style).
+     */
+    getSelectedText(): string;
+
+    /**
+     * Sets the current selection. Start is inclusive, end is exclusive. Places the cursor at the
+     * end of the selection range. Optionally centers the around the cursor after
+     * making the selection
+     * @param centerOptions Option value, or 0 for no options.
+     */
+    setSelection(
+      start: {line:number;ch:number;},
+      end: {line:number;ch:number;},
+      center: boolean,
+      centerOptions: number);
+
+    /**
+     * Selects word that the given pos lies within or adjacent to. If pos isn't touching a word
+     * (e.g. within a token like "//"), moves the cursor to pos without selecting a range.
+     * Adapted from selectWordAt() in CodeMirror v2.
+     */
+    selectWordAt(pos: {line:number;ch:number;});
+
+    /**
+     * Gets the total number of lines in the the document (includes lines not visible in the viewport)
+     */
+    lineCount(): number;
+
+    /**
+     * Deterines if line is fully visible.
+     * @param line zero-based index of the line to test
+     * @return true if the line is fully visible, false otherwise
+     */
+    isLineVisible(line: number): boolean;
+
+    /**
+     * Gets the number of the first visible line in the editor.
+     * @returns The 0-based index of the first visible line.
+     */
+    getFirstVisibleLine(): number;
+
+    /**
+     * Gets the number of the last visible line in the editor.
+     * @returns The 0-based index of the last visible line.
+     */
+    getLastVisibleLine(): number;
+
+    /**
+     * Gets the total height of the document in pixels (not the viewport)
+     * @returns height in pixels
+     */
+    totalHeight(): number;
+
+    /**
+     * Gets the scroller element from the editor.
+     */
+    getScrollerElement(): HTMLDivElement;
+
+    /**
+     * Gets the root DOM node of the editor.
+     * @returns The editor's root DOM node.
+     */
+    getRootElement(): HTMLDivElement;
+
+    /**
+     * Returns the current scroll position of the editor.
+     * @returns The x,y scroll position in pixels
+     */
+    getScrollPos(): {x:number; y:number;};
+
+    /**
+     * Sets the current scroll position of the editor.
+     * @param x scrollLeft position in pixels
+     * @param y scrollTop position in pixels
+     */
+    setScrollPos(x: number, y: number);
+
+    /*
+     * Returns the current text height of the editor.
+     * @returns Height of the text in pixels
+     */
+    getTextHeight(): number;
+
+    /**
+     * Adds an inline widget below the given line. If any inline widget was already open for that
+     * line, it is closed without warning.
+     * @param pos Position in text to anchor the inline.
+     * @param inlineWidget The widget to add.
+     * @param scrollLineIntoView Scrolls the associated line into view. Default true.
+     * @return A promise object that is resolved when the widget has been added (but might
+     *     still be animating open). Never rejected.
+     */
+    addInlineWidget(
+      pos: {line:number;ch:number;},
+      inlineWidget: brackets.InlineWidget,
+      scrollLineIntoView: boolean): JQueryPromise;
+
+    /**
+     * Removes all inline widgets
+     */
+    removeAllInlineWidgets();
+
+    /**
+     * Removes the given inline widget.
+     * @param inlineWidget The widget to remove.
+     * @return A promise that is resolved when the inline widget is fully closed and removed from the DOM.
+     */
+    removeInlineWidget(inlineWidget: brackets.InlineWidget): JQueryPromise;
+
+    /**
+     * Removes all inline widgets for a given line
+     * @param lineNum The line number to modify
+     */
+    removeAllInlineWidgetsForLine(lineNum: number);
+
+    /**
+     * Returns the offset of the top of the virtual scroll area relative to the browser window (not the editor
+     * itself). Mainly useful for calculations related to scrollIntoView(), where you're starting with the
+     * offset() of a child widget (relative to the browser window) and need to figure out how far down it is from
+     * the top of the virtual scroll area (excluding the top padding).
+     */
+    getVirtualScrollAreaTop(): number;
+
+    /**
+     * Sets the height of an inline widget in this editor. 
+     * @param inlineWidget The widget whose height should be set.
+     * @param height The height of the widget.
+     * @param ensureVisible Whether to scroll the entire widget into view.
+     */
+    setInlineWidgetHeight(inlineWidget: brackets.InlineWidget, height: number, ensureVisible: boolean);
+
+    /** Gives focus to the editor control */
+    focus();
+
+    /** Returns true if the editor has focus */
+    hasFocus(): boolean;
     
+    /**
+     * Re-renders the editor UI
+     * @param handleResize true if this is in response to resizing the editor. Default false.
+     */
+    refresh(handleResize?: boolean);
+
+    /**
+     * Re-renders the editor, and all children inline editors.
+     * @param handleResize true if this is in response to resizing the editor. Default false.
+     */
+    refreshAll(handleResize?: boolean);
+
+    /** Undo the last edit. */
+    undo();
+
+    /** Redo the last un-done edit. */
+    redo();
+
+    /**
+     * Returns true if the editor is fully visible--i.e., is in the DOM, all ancestors are
+     * visible, and has a non-zero width/height.
+     */
+    isFullyVisible(): boolean;
+
+    /**
+     * Gets the syntax-highlighting mode for the current selection or cursor position. (The mode may
+     * vary within one file due to embedded languages, e.g. JS embedded in an HTML script block).
+     *
+     * Returns null if the mode at the start of the selection differs from the mode at the end -
+     * an *approximation* of whether the mode is consistent across the whole range (a pattern like
+     * A-B-A would return A as the mode, not null).
+     *
+     * @return (Object|string) Name of syntax-highlighting mode, or object containing a "name" property
+     *     naming the mode along with configuration options required by the mode. 
+     *     See {@link LanguageManager#getLanguageForPath()} and {@link Language#getMode()}.
+     */
+    getModeForSelection(): any;
+
+    /**
+     * Gets the syntax-highlighting mode for the document.
+     *
+     * @return (Object|String) Object or Name of syntax-highlighting mode; see {@link LanguageManager#getLanguageForPath()} and {@link Language#getMode()}.
+     */
+    getModeForDocument();
+
   }
 
   interface InlineWidget {
