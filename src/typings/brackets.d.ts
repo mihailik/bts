@@ -18,6 +18,7 @@ declare module brackets {
 
   function getModule(moduleName: 'command/CommandManager'): brackets.CommandManager;
   function getModule(moduleName: 'command/Menus'): brackets.Menus;
+  function getModule(moduleName: 'command/KeyBindingManager'): brackets.KeyBindingManager;
 
   function getModule(moduleName: 'document/DocumentManager'): brackets.DocumentManager;
 
@@ -350,6 +351,27 @@ declare module brackets {
   }
   
   interface FileSystem {
+  }
+
+  interface KeyBindingManager {
+    getKeymap;
+    setEnabled;
+    addBinding;
+    removeBinding;
+    formatKeyDescriptor;
+    getKeyBindings;
+    addGlobalKeydownHook;
+    removeGlobalKeydownHook;
+
+    /**
+     * Use windows-specific bindings if no other are found (e.g. Linux).
+     * Core Brackets modules that use key bindings should always define at
+     * least a generic keybinding that is applied for all platforms. This
+     * setting effectively creates a compatibility mode for third party
+     * extensions that define explicit key bindings for Windows and Mac, but
+     * not Linux.
+     */
+    useWindowsCompatibleBindings;
   }
   
   interface Language {
