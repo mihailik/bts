@@ -1,4 +1,197 @@
 define(function(require,exports,module){/// <reference path='typings/typescriptServices.d.ts' />
+var TypeScriptService = (function () {
+    function TypeScriptService() {
+        this.logLevels = {
+            information: true,
+            debug: true,
+            warning: true,
+            error: true,
+            fatal: true
+        };
+        this.compilationSettings = new TypeScript.CompilationSettings();
+        this.resolveScript = null;
+        this._scriptCache = {};
+        this._requestedFiles = {};
+        this._requestContinuations = [];
+        var factory = new Services.TypeScriptServicesFactory();
+        this._service = factory.createPullLanguageService(this._createLanguageServiceHost());
+    }
+    TypeScriptService.prototype.getCompletionsAtPosition = function (file, position, isMemberCompletion) {
+        var _this = this;
+        var promise = $.Deferred();
+
+        var attempt = function () {
+            var result = _this._service.getCompletionsAtPosition(file, position, isMemberCompletion);
+
+            if (_this._requestedFiles.length == 0) {
+                promise.resolve(result);
+            } else {
+                _this._requestContinuations.push(attempt);
+            }
+        };
+
+        attempt();
+
+        return promise;
+    };
+
+    TypeScriptService.prototype._log = function (text) {
+        console.log(text);
+    };
+
+    TypeScriptService.prototype._getScript = function (fileName) {
+        var _this = this;
+        var script = this._scriptCache[fileName];
+        var resolveResult = this.resolveScript ? this.resolveScript(fileName) : null;
+        if (!resolveResult)
+            return null;
+        if (resolveResult.getSnapshot) {
+            this._scriptCache[fileName] = resolveResult;
+            return resolveResult;
+        } else {
+            this._requestedFiles[fileName] = true;
+            resolveResult.done(function (script) {
+                delete _this._requestedFiles[fileName];
+                if (Object.keys(_this._requestedFiles).length == 0) {
+                    if (_this._requestContinuations.length) {
+                        var continuations = _this._requestContinuations;
+                        _this._requestContinuations = [];
+                        for (var i = 0; i < continuations.length; i++) {
+                            var co = continuations[i];
+                            co();
+                        }
+                    }
+                }
+            });
+        }
+
+        if (script)
+            return script;
+
+        return null;
+    };
+
+    TypeScriptService.prototype._createLanguageServiceHost = function () {
+        var _this = this;
+        return {
+            getCompilationSettings: function () {
+                return _this.compilationSettings;
+            },
+            getScriptFileNames: function () {
+                return Object.keys(_this._scriptCache);
+            },
+            getScriptVersion: function (fileName) {
+                var script = _this._getScript(fileName);
+                if (script && script.getVersion)
+                    return script.getVersion();
+                else
+                    return -1;
+            },
+            getScriptIsOpen: function (fileName) {
+                return _this._scriptCache[fileName] ? true : false;
+            },
+            getScriptByteOrderMark: function (fileName) {
+                return 0 /* None */;
+            },
+            getScriptSnapshot: function (fileName) {
+                var script = _this._getScript(fileName);
+                if (script && script.getSnapshot)
+                    return script.getSnapshot();
+                else
+                    return null;
+            },
+            getDiagnosticsObject: function () {
+                return { log: function (text) {
+                        return _this._log(text);
+                    } };
+            },
+            getLocalizedDiagnosticMessages: function () {
+                return null;
+            },
+            information: function () {
+                return _this.logLevels.information;
+            },
+            debug: function () {
+                return _this.logLevels.debug;
+            },
+            warning: function () {
+                return _this.logLevels.warning;
+            },
+            error: function () {
+                return _this.logLevels.error;
+            },
+            fatal: function () {
+                return _this.logLevels.fatal;
+            },
+            log: function (text) {
+                return _this._log(text);
+            },
+            resolveRelativePath: function (path) {
+                return path;
+            },
+            fileExists: function (path) {
+                // don't issue a full resolve,
+                // this might be a mere probe for a file
+                return _this._scriptCache[path] ? true : false;
+            },
+            directoryExists: function (path) {
+                return true;
+            },
+            getParentDirectory: function (path) {
+                path = TypeScript.switchToForwardSlashes(path);
+                var slashPos = path.lastIndexOf('/');
+                if (slashPos === path.length - 1)
+                    slashPos = path.lastIndexOf('/', path.length - 2);
+                if (slashPos > 0)
+                    return path.slice(0, slashPos);
+                else
+                    return '/';
+            }
+        };
+    };
+    return TypeScriptService;
+})();
+/// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/brackets.d.ts' />
+/// <reference path='TypeScriptService.ts' />
+var TypeScriptCodeHintProvider = (function () {
+    function TypeScriptCodeHintProvider(_documentManager) {
+        var _this = this;
+        this._documentManager = _documentManager;
+        this._service = new TypeScriptService();
+        this._service.resolveScript = function (file) {
+            return _this._resolveScript(file);
+        };
+    }
+    TypeScriptCodeHintProvider.prototype.hasHints = function (editor, implicitChar) {
+        if (this._editor !== editor) {
+            this._editor = editor;
+        }
+
+        return !implicitChar;
+    };
+
+    TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
+        console.log('getCurrentDocument...');
+        var doc = this._documentManager.getCurrentDocument();
+        var path = doc.file.fullPath;
+        var result = $.Deferred();
+        console.log('getCompletionsAtPosition...');
+        var completionPromise = this._service.getCompletionsAtPosition(path, 2, false);
+        completionPromise.done(function (x, y) {
+            console.log('completionPromise.done' + x + y + '...');
+        });
+    };
+
+    TypeScriptCodeHintProvider.prototype.insertHint = function (hint) {
+        return false;
+    };
+
+    TypeScriptCodeHintProvider.prototype._resolveScript = function (file) {
+    };
+    return TypeScriptCodeHintProvider;
+})();
+/// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 /// <reference path='typings/codemirror.d.ts' />
 var DocumentScriptSnapshot = (function () {
@@ -180,190 +373,6 @@ var TypeScriptLanguageServiceHost = (function () {
             return '/';
     };
     return TypeScriptLanguageServiceHost;
-})();
-/// <reference path='typings/typescriptServices.d.ts' />
-var TypeScriptService = (function () {
-    function TypeScriptService() {
-        var _this = this;
-        this.logLevels = {
-            information: true,
-            debug: true,
-            warning: true,
-            error: true,
-            fatal: true
-        };
-        this.compilationSettings = new TypeScript.CompilationSettings();
-        this.resolveScript = null;
-        this._scriptCache = {};
-        this._requestedFiles = {};
-        this._requestContinuations = [];
-        var factory = new Services.TypeScriptServicesFactory();
-        this._service = factory.createPullLanguageService({
-            getCompilationSettings: function () {
-                return _this.compilationSettings;
-            },
-            getScriptFileNames: function () {
-                return Object.keys(_this._scriptCache);
-            },
-            getScriptVersion: function (fileName) {
-                var script = _this._getScript(fileName);
-                if (script && script.getVersion)
-                    return script.getVersion();
-                else
-                    return -1;
-            },
-            getScriptIsOpen: function (fileName) {
-                return _this._scriptCache[fileName] ? true : false;
-            },
-            getScriptByteOrderMark: function (fileName) {
-                return 0 /* None */;
-            },
-            getScriptSnapshot: function (fileName) {
-                var script = _this._getScript(fileName);
-                if (script && script.getSnapshot)
-                    return script.getSnapshot();
-                else
-                    return null;
-            },
-            getDiagnosticsObject: function () {
-                return { log: function (text) {
-                        return _this._log(text);
-                    } };
-            },
-            getLocalizedDiagnosticMessages: function () {
-                return null;
-            },
-            information: function () {
-                return _this.logLevels.information;
-            },
-            debug: function () {
-                return _this.logLevels.debug;
-            },
-            warning: function () {
-                return _this.logLevels.warning;
-            },
-            error: function () {
-                return _this.logLevels.error;
-            },
-            fatal: function () {
-                return _this.logLevels.fatal;
-            },
-            log: function (text) {
-                return _this._log(text);
-            },
-            resolveRelativePath: function (path) {
-                return path;
-            },
-            fileExists: function (path) {
-                // don't issue a full resolve,
-                // this might be a mere probe for a file
-                return _this._scriptCache[path] ? true : false;
-            },
-            directoryExists: function (path) {
-                return true;
-            },
-            getParentDirectory: function (path) {
-                path = TypeScript.switchToForwardSlashes(path);
-                var slashPos = path.lastIndexOf('/');
-                if (slashPos === path.length - 1)
-                    slashPos = path.lastIndexOf('/', path.length - 2);
-                if (slashPos > 0)
-                    return path.slice(0, slashPos);
-                else
-                    return '/';
-            }
-        });
-    }
-    TypeScriptService.prototype.getCompletionsAtPosition = function (file, position, isMemberCompletion) {
-        var promise = $.Deferred();
-
-        function attempt() {
-            var result = this._service.getCompletionsAtPosition(file, position, isMemberCompletion);
-
-            if (this._requestedFiles.length == 0) {
-                promise.resolve(result);
-            } else {
-                this._requestContinuations.push(attempt);
-            }
-        }
-
-        attempt();
-
-        return promise;
-    };
-
-    TypeScriptService.prototype._log = function (text) {
-        console.log(text);
-    };
-
-    TypeScriptService.prototype._getScript = function (fileName) {
-        var _this = this;
-        var script = this._scriptCache[fileName];
-        var resolveResult = this.resolveScript ? this.resolveScript(fileName) : null;
-        if (!resolveResult)
-            return null;
-        if (resolveResult.getSnapshot) {
-            this._scriptCache[fileName] = resolveResult;
-            return resolveResult;
-        } else {
-            this._requestedFiles[fileName] = true;
-            resolveResult.done(function (script) {
-                delete _this._requestedFiles[fileName];
-                if (Object.keys(_this._requestedFiles).length == 0) {
-                    if (_this._requestContinuations.length) {
-                        var continuations = _this._requestContinuations;
-                        _this._requestContinuations = [];
-                        for (var i = 0; i < continuations.length; i++) {
-                            var co = continuations[i];
-                            co();
-                        }
-                    }
-                }
-            });
-        }
-
-        if (script)
-            return script;
-
-        return null;
-    };
-    return TypeScriptService;
-})();
-/// <reference path='typings/typescriptServices.d.ts' />
-/// <reference path='typings/brackets.d.ts' />
-/// <reference path='TypeScriptLanguageServiceHost.ts' />
-/// <reference path='TypeScriptService.ts' />
-var TypeScriptCodeHintProvider = (function () {
-    function TypeScriptCodeHintProvider(_documentManager) {
-        this._documentManager = _documentManager;
-        this._languageHost = new TypeScriptLanguageServiceHost(function (file) {
-            return null;
-        }); //this._createDocumentState(file));
-
-        var factory = new Services.TypeScriptServicesFactory();
-
-        this._languageService = factory.createPullLanguageService(this._languageHost);
-    }
-    TypeScriptCodeHintProvider.prototype.hasHints = function (editor, implicitChar) {
-        if (this._editor !== editor) {
-            this._editor = editor;
-        }
-
-        return !implicitChar;
-    };
-
-    TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
-        return null;
-    };
-
-    TypeScriptCodeHintProvider.prototype.insertHint = function (hint) {
-        return false;
-    };
-
-    TypeScriptCodeHintProvider.prototype._createDocumentState = function (file) {
-        return null;
-    };
-    return TypeScriptCodeHintProvider;
 })();
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />

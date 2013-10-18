@@ -1,22 +1,14 @@
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
-/// <reference path='TypeScriptLanguageServiceHost.ts' />
 
 /// <reference path='TypeScriptService.ts' />
 
 class TypeScriptCodeHintProvider {
   private _editor: any;
-  private _languageService: Services.ILanguageService;
-  private _languageHost: TypeScriptLanguageServiceHost;
+  private _service = new TypeScriptService();
 
   constructor (private _documentManager: brackets.DocumentManager) {
-    
-    this._languageHost = new TypeScriptLanguageServiceHost(
-      (file: string) => null);//this._createDocumentState(file));
-    
-    var factory = new Services.TypeScriptServicesFactory();
-    
-    this._languageService = factory.createPullLanguageService(this._languageHost);
+    this._service.resolveScript = (file:string) => this._resolveScript(file);
   }
 
   hasHints(
@@ -31,8 +23,15 @@ class TypeScriptCodeHintProvider {
 
   getHints(
     implicitChar: string): any {
-
-    return null;
+    console.log('getCurrentDocument...');
+    var doc = this._documentManager.getCurrentDocument();
+    var path = doc.file.fullPath;
+    var result = $.Deferred();
+    console.log('getCompletionsAtPosition...');
+    var completionPromise = this._service.getCompletionsAtPosition(path, 2, false);
+    completionPromise.done((x,y) => {
+      console.log('completionPromise.done'+x+y+'...');
+    });
   }
 
   insertHint(
@@ -40,7 +39,6 @@ class TypeScriptCodeHintProvider {
     return false;
   }
 
-  private _createDocumentState(file: string): Document {
-    return null;
+  private _resolveScript(file:string): any {
   }
 }

@@ -22,53 +22,7 @@ class TypeScriptService {
 
   constructor() {
     var factory = new Services.TypeScriptServicesFactory();
-    this._service = factory.createPullLanguageService({
-      getCompilationSettings: () => this.compilationSettings,
-      getScriptFileNames: () => Object.keys(this._scriptCache),
-      getScriptVersion: (fileName: string) => {
-        var script = this._getScript(fileName);
-        if (script && script.getVersion)
-          return script.getVersion();
-        else
-          return -1;
-      },
-      getScriptIsOpen: (fileName: string) => this._scriptCache[fileName] ? true : false,
-      getScriptByteOrderMark: (fileName: string) => ByteOrderMark.None,
-      getScriptSnapshot: (fileName: string) => {
-        var script = this._getScript(fileName);
-        if (script && script.getSnapshot)
-          return script.getSnapshot();
-        else
-          return null;
-      },
-      getDiagnosticsObject: () => {
-        return { log: (text:string) => this._log(text) };
-      },
-      getLocalizedDiagnosticMessages: () => null,
-      information: () => this.logLevels.information,
-      debug: () => this.logLevels.debug,
-      warning: () => this.logLevels.warning,
-      error: () => this.logLevels.error,
-      fatal: () => this.logLevels.fatal,
-      log: (text: string) => this._log(text),
-      resolveRelativePath: (path: string) => path,
-      fileExists: (path: string) => {
-        // don't issue a full resolve,
-        // this might be a mere probe for a file
-        return this._scriptCache[path] ? true : false;
-      },
-      directoryExists: (path: string) => true,
-      getParentDirectory: (path: string) => {
-        path = TypeScript.switchToForwardSlashes(path);
-        var slashPos = path.lastIndexOf('/');
-        if (slashPos===path.length-1)
-          slashPos = path.lastIndexOf('/', path.length-2);
-        if (slashPos>0)
-          return path.slice(0,slashPos);
-        else
-          return '/';
-      }
-    });
+    this._service = factory.createPullLanguageService(this._createLanguageServiceHost());
   }
 
   getCompletionsAtPosition(
@@ -78,7 +32,7 @@ class TypeScriptService {
         
     var promise = $.Deferred(); 
     
-    function attempt() {
+    var attempt = () => {
       var result = this._service.getCompletionsAtPosition(
         file, position, isMemberCompletion);
 
@@ -129,6 +83,56 @@ class TypeScriptService {
       return script;
 
     return null;
+  }
+  
+  private _createLanguageServiceHost() {
+    return {
+      getCompilationSettings: () => this.compilationSettings,
+      getScriptFileNames: () => Object.keys(this._scriptCache),
+      getScriptVersion: (fileName: string) => {
+        var script = this._getScript(fileName);
+        if (script && script.getVersion)
+          return script.getVersion();
+        else
+          return -1;
+      },
+      getScriptIsOpen: (fileName: string) => this._scriptCache[fileName] ? true : false,
+      getScriptByteOrderMark: (fileName: string) => ByteOrderMark.None,
+      getScriptSnapshot: (fileName: string) => {
+        var script = this._getScript(fileName);
+        if (script && script.getSnapshot)
+          return script.getSnapshot();
+        else
+          return null;
+      },
+      getDiagnosticsObject: () => {
+        return { log: (text:string) => this._log(text) };
+      },
+      getLocalizedDiagnosticMessages: () => null,
+      information: () => this.logLevels.information,
+      debug: () => this.logLevels.debug,
+      warning: () => this.logLevels.warning,
+      error: () => this.logLevels.error,
+      fatal: () => this.logLevels.fatal,
+      log: (text: string) => this._log(text),
+      resolveRelativePath: (path: string) => path,
+      fileExists: (path: string) => {
+        // don't issue a full resolve,
+        // this might be a mere probe for a file
+        return this._scriptCache[path] ? true : false;
+      },
+      directoryExists: (path: string) => true,
+      getParentDirectory: (path: string) => {
+        path = TypeScript.switchToForwardSlashes(path);
+        var slashPos = path.lastIndexOf('/');
+        if (slashPos===path.length-1)
+          slashPos = path.lastIndexOf('/', path.length-2);
+        if (slashPos>0)
+          return path.slice(0,slashPos);
+        else
+          return '/';
+      }
+    }
   }
 }
                                               
