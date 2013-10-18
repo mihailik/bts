@@ -370,22 +370,162 @@ declare module brackets {
    *                             just gained focus.
    */
   interface EditorManager {
+
+    /**
+     * Flag for _onEditorAreaResize() to always force refresh.
+     */
     REFRESH_FORCE: string;
+
+    /**
+     * Flag for _onEditorAreaResize() to never refresh.
+     */
     REFRESH_SKIP: string;
     
-    setEditorHolder;
-    getCurrentFullEditor;
-    createInlineEditorForDocument;
-    focusEditor;
-    getFocusedEditor;
-    getActiveEditor;
-    getFocusedInlineWidget;
-    resizeEditor;
-    registerInlineEditProvider;
-    registerInlineDocsProvider;
-    registerJumpToDefProvider;
+    /**
+     * Designates the DOM node that will contain the currently active editor instance. EditorManager
+     * will own the content of this DOM node.
+     * @param holder (jQueryObject)
+     */
+    setEditorHolder(holder: any);
+    
+    /** Returns the visible full-size Editor corresponding to DocumentManager.getCurrentDocument() */
+    getCurrentFullEditor(): brackets.Editor;
+
+    /**
+     * Creates a new inline Editor instance for the given Document.
+     * The editor is not yet visible or attached to a host editor.
+     * @param doc  Document for the Editor's content
+     * @param range  If specified, all lines outside the given
+     *      range are hidden from the editor. Range is inclusive. Line numbers start at 0.
+     * @param inlineContent
+     * 
+     * @return {{content:DOMElement, editor:Editor}}
+     */
+    createInlineEditorForDocument(doc: brackets.Document, range: {startLine: number; endLine: number;}, inlineContent: HTMLDivElement): { content: HTMLElement; editor: brackets.Editor; };
+    createInlineEditorForDocument(doc: brackets.Document, inlineContent: HTMLDivElement): { content: HTMLElement; editor: brackets.Editor; };
+
+    /** 
+     * Returns focus to the last visible editor that had focus. If no editor visible, does nothing.
+     * This function should be called to restore editor focus after it has been temporarily
+     * removed. For example, after a dialog with editable text is closed.
+     */
+    focusEditor();
+
+    /**
+     * Returns the currently focused editor instance (full-sized OR inline editor).
+     * This function is similar to getActiveEditor(), with one main difference: this
+     * function will only return editors that currently have focus, whereas 
+     * getActiveEditor() will return the last visible editor that was given focus (but
+     * may not currently have focus because, for example, a dialog with editable text
+     * is open).
+     */
+    getFocusedEditor(): brackets.Editor;
+
+    /**
+     * Returns the current active editor (full-sized OR inline editor). This editor may not 
+     * have focus at the moment, but it is visible and was the last editor that was given 
+     * focus. Returns null if no editors are active.
+     * @see getFocusedEditor()
+     */
+    getActiveEditor(): brackets.Editor;
+
+    /**
+     * Returns the currently focused inline widget, if any.
+     */
+    getFocusedInlineWidget(): brackets.InlineWidget;
+
+    /**
+     * Must be called whenever the size/visibility of editor area siblings is changed without going through
+     * PanelManager or Resizer. Resizable panels created via PanelManager do not require this manual call.
+     */
+    resizeEditor();
+
+    /**
+     * Registers a new inline editor provider. When Quick Edit is invoked each registered provider is
+     * asked if it wants to provide an inline editor given the current editor and cursor location.
+     * An optional priority parameter is used to give providers with higher priority an opportunity
+     * to provide an inline editor before providers with lower priority.
+     * 
+     * The provider returns a promise that will be resolved with an InlineWidget, or returns null
+     * to indicate the provider doesn't want to respond to this case.
+     */
+    registerInlineEditProvider(
+      provider: (editor: brackets.Editor, position: {line:number;ch:number;}) => JQueryPromiseTyped<brackets.InlineWidget>,
+      priority: number);
+
+    /**
+     * Registers a new inline docs provider. When Quick Docs is invoked each registered provider is
+     * asked if it wants to provide inline docs given the current editor and cursor location.
+     * An optional priority parameter is used to give providers with higher priority an opportunity
+     * to provide an inline editor before providers with lower priority.
+     * 
+     * The provider returns a promise that will be resolved with an InlineWidget, or returns null
+     * to indicate the provider doesn't want to respond to this case.
+     */
+    registerInlineDocsProvider(provider: (editor: brackets.Editor, position: {line:number;ch:number}) => JQueryPromiseTyped<brackets.InlineWidget>, priority: number);
+
+    /**
+     * Registers a new jump-to-definition provider. When jump-to-definition is invoked each
+     * registered provider is asked if it wants to provide jump-to-definition results, given
+     * the current editor and cursor location. 
+     * The provider returns a promise that will be resolved with jump-to-definition results, or
+     * returns null to indicate the provider doesn't want to respond to this case.
+     */
+    registerJumpToDefProvider(provider: (editor: brackets.Editor, position: {line:number;ch:number}) => JQueryPromiseTyped<brackets.InlineWidget>);
+
     getInlineEditors;
-    closeInlineWidget;
+
+    /**
+     * Removes the given widget UI from the given hostEditor (agnostic of what the widget's content
+     * is). The widget's onClosed() callback will be run as a result.
+     * @param hostEditor The editor containing the widget.
+     * @param inlineWidget The inline widget to close.
+     * @return A promise that's resolved when the widget is fully closed.
+     */
+    closeInlineWidget(hostEditor: brackets.Editor, inlineWidget: brackets.InlineWidget): JQueryPromise;
+  }
+
+/**
+ * Editor is a 1-to-1 wrapper for a CodeMirror editor instance. It layers on Brackets-specific
+ * functionality and provides APIs that cleanly pass through the bits of CodeMirror that the rest
+ * of our codebase may want to interact with. An Editor is always backed by a Document, and stays
+ * in sync with its content; because Editor keeps the Document alive, it's important to always
+ * destroy() an Editor that's going away so it can release its Document ref.
+ *
+ * For now, there's a distinction between the "master" Editor for a Document - which secretly acts
+ * as the Document's internal model of the text state - and the multitude of "slave" secondary Editors
+ * which, via Document, sync their changes to and from that master.
+ *
+ * For now, direct access to the underlying CodeMirror object is still possible via _codeMirror --
+ * but this is considered deprecated and may go away.
+ *  
+ * The Editor object dispatches the following events:
+ *    - keyEvent -- When any key event happens in the editor (whether it changes the text or not).
+ *          Event handlers are passed ({Editor}, {KeyboardEvent}). The 2nd arg is the raw DOM event.
+ *          Note: most listeners will only want to respond when event.type === "keypress".
+ *    - cursorActivity -- When the user moves the cursor or changes the selection, or an edit occurs.
+ *          Note: do not listen to this in order to be generally informed of edits--listen to the
+ *          "change" event on Document instead.
+ *    - scroll -- When the editor is scrolled, either by user action or programmatically.
+ *    - lostContent -- When the backing Document changes in such a way that this Editor is no longer
+ *          able to display accurate text. This occurs if the Document's file is deleted, or in certain
+ *          Document->editor syncing edge cases that we do not yet support (the latter cause will
+ *          eventually go away).
+ *    - optionChange -- Triggered when an option for the editor is changed. The 2nd arg to the listener
+ *          is a string containing the editor option that is changing. The 3rd arg, which can be any
+ *          data type, is the new value for the editor option.
+ *
+ * The Editor also dispatches "change" events internally, but you should listen for those on
+ * Documents, not Editors.
+ *
+ * These are jQuery events, so to listen for them you do something like this:
+ *    $(editorInstance).on("eventname", handler);
+ */
+  interface Editor {
+    
+  }
+
+  interface InlineWidget {
   }
   
   interface FileSystem {
