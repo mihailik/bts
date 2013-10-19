@@ -18,9 +18,9 @@ var TypeScriptService = (function () {
     }
     TypeScriptService.prototype.getCompletionsAtPosition = function (file, position, isMemberCompletion) {
         var _this = this;
+        // make sure temporary empty scripts don't screw on a long position
         var existingScript = this._getScript(file);
         if (existingScript && existingScript.getSnapshot) {
-            // make sure temporary scripts don't screw on a long position
             var snapshot = existingScript.getSnapshot();
             if (position >= snapshot.getLength())
                 position = 0;
@@ -66,6 +66,7 @@ var TypeScriptService = (function () {
         } else {
             this._requestedFiles[fileName] = true;
             resolveResult.done(function (script) {
+                _this._scriptCache[fileName] = script;
                 delete _this._requestedFiles[fileName];
                 if (Object.keys(_this._requestedFiles).length == 0) {
                     if (_this._requestContinuations.length) {

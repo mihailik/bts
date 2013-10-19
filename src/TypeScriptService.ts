@@ -30,9 +30,9 @@ class TypeScriptService {
     position: number,
     isMemberCompletion: boolean): JQueryPromise {
 
+    // make sure temporary empty scripts don't screw on a long position
     var existingScript = this._getScript(file);
     if (existingScript && existingScript.getSnapshot) {
-      // make sure temporary scripts don't screw on a long position
       var snapshot = existingScript.getSnapshot();
       if (position>=snapshot.getLength())
         position = 0;
@@ -81,6 +81,7 @@ class TypeScriptService {
     else {
       this._requestedFiles[fileName] = true;
       resolveResult.done((script: TypeScriptService.ScriptState) => {
+        this._scriptCache[fileName] = script;
         delete this._requestedFiles[fileName];
         if (Object.keys(this._requestedFiles).length==0) {
           if (this._requestContinuations.length) {
