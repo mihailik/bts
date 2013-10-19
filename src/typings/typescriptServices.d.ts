@@ -7776,7 +7776,6 @@ declare module TypeScript {
         public captureThisStmtString: string;
         private currentVariableDeclaration;
         private declStack;
-        private resolvingContext;
         private exportAssignmentIdentifier;
         private inWithBlock;
         public document: TypeScript.Document;
@@ -8912,6 +8911,7 @@ declare module TypeScript {
         private typeCheckFunctionDeclaration(funcDeclAST, flags, name, typeParameters, parameters, returnTypeAnnotation, block, context);
         private resolveReturnTypeAnnotationOfFunctionDeclaration(funcDeclAST, flags, returnTypeAnnotation, context);
         private resolveMemberFunctionDeclaration(funcDecl, context);
+        private typeCheckMemberFunctionDeclaration(funcDeclAST, flags, name, typeParameters, parameters, returnTypeAnnotation, block, context);
         private resolveAnyFunctionDeclaration(funcDecl, context);
         private resolveFunctionExpression(funcDecl, isContextuallyTyped, context);
         private resolveArrowFunctionExpression(funcDecl, isContextuallyTyped, context);
