@@ -177,7 +177,6 @@ declare module TypeScript {
         Cannot_invoke_an_expression_whose_type_lacks_a_call_signature: string;
         Calls_to_super_are_only_valid_inside_a_class: string;
         Generic_type_0_requires_1_type_argument_s: string;
-        Type_of_conditional_expression_cannot_be_determined_0_is_not_identical_to_a_supertype_of_or_a_subtype_of_1: string;
         Type_of_array_literal_cannot_be_determined_Best_common_type_could_not_be_found_for_array_elements: string;
         Could_not_find_enclosing_symbol_for_dotted_name_0: string;
         The_property_0_does_not_exist_on_value_of_type_1: string;
@@ -201,7 +200,7 @@ declare module TypeScript {
         Variable_declarations_of_a_for_statement_cannot_use_a_type_annotation: string;
         Variable_declarations_of_a_for_statement_must_be_of_types_string_or_any: string;
         The_right_hand_side_of_a_for_in_statement_must_be_of_type_any_an_object_type_or_a_type_parameter: string;
-        The_left_hand_side_of_an_in_expression_must_be_of_types_string_or_any: string;
+        The_left_hand_side_of_an_in_expression_must_be_of_types_any_string_or_number: string;
         The_right_hand_side_of_an_in_expression_must_be_of_type_any_an_object_type_or_a_type_parameter: string;
         The_left_hand_side_of_an_instanceof_expression_must_be_of_type_any_an_object_type_or_a_type_parameter: string;
         The_right_hand_side_of_an_instanceof_expression_must_be_of_type_any_or_a_subtype_of_the_Function_interface_type: string;
@@ -305,6 +304,8 @@ declare module TypeScript {
         TypeParameter_0_of_exported_interface_is_using_inaccessible_module_1: string;
         Duplicate_identifier_i_Compiler_uses_i_to_initialize_rest_parameter: string;
         Duplicate_identifier_arguments_Compiler_uses_arguments_to_initialize_rest_parameters: string;
+        Type_of_conditional_0_must_be_identical_to_1_or_2: string;
+        Type_of_conditional_0_must_be_identical_to_1_2_or_3: string;
         Type_0_is_missing_property_1_from_type_2: string;
         Types_of_property_0_of_types_1_and_2_are_incompatible: string;
         Types_of_property_0_of_types_1_and_2_are_incompatible_NL_3: string;
@@ -1426,10 +1427,6 @@ declare module TypeScript {
             "code": number;
             "category": DiagnosticCategory;
         };
-        "Type of conditional expression cannot be determined . '{0}' is not identical to, a supertype of, or a subtype of '{1}'.": {
-            "code": number;
-            "category": DiagnosticCategory;
-        };
         "Type of array literal cannot be determined. Best common type could not be found for array elements.": {
             "code": number;
             "category": DiagnosticCategory;
@@ -1522,7 +1519,7 @@ declare module TypeScript {
             "code": number;
             "category": DiagnosticCategory;
         };
-        "The left-hand side of an 'in' expression must be of types 'string' or 'any'.": {
+        "The left-hand side of an 'in' expression must be of types 'any', 'string' or 'number'.": {
             "code": number;
             "category": DiagnosticCategory;
         };
@@ -1935,6 +1932,14 @@ declare module TypeScript {
             "category": DiagnosticCategory;
         };
         "Duplicate identifier 'arguments'. Compiler uses 'arguments' to initialize rest parameters.": {
+            "code": number;
+            "category": DiagnosticCategory;
+        };
+        "Type of conditional '{0}' must be identical to '{1}' or '{2}'.": {
+            "code": number;
+            "category": DiagnosticCategory;
+        };
+        "Type of conditional '{0}' must be identical to '{1}', '{2}' or '{3}'.": {
             "code": number;
             "category": DiagnosticCategory;
         };
@@ -8215,13 +8220,6 @@ declare module TypeScript {
     }
 }
 declare module TypeScript {
-    class DataMap<T> {
-        public map: any;
-        public link(id: string, data: T): void;
-        public read(id: string): T;
-    }
-}
-declare module TypeScript {
     enum PullElementFlags {
         None = 0,
         Exported = 1,
@@ -8915,8 +8913,8 @@ declare module TypeScript {
         private resolveReturnTypeAnnotationOfFunctionDeclaration(funcDeclAST, flags, returnTypeAnnotation, context);
         private resolveMemberFunctionDeclaration(funcDecl, context);
         private resolveAnyFunctionDeclaration(funcDecl, context);
-        private resolveFunctionExpression(funcDecl, inContextuallyTypedAssignment, context);
-        private resolveArrowFunctionExpression(funcDecl, inContextuallyTypedAssignment, context);
+        private resolveFunctionExpression(funcDecl, isContextuallyTyped, context);
+        private resolveArrowFunctionExpression(funcDecl, isContextuallyTyped, context);
         private getEnclosingClassDeclaration(ast);
         private resolveConstructorDeclaration(funcDeclAST, context);
         private resolveFunctionDeclaration(funcDeclAST, flags, name, typeParameters, parameterList, returnTypeAnnotation, block, context);
@@ -8993,8 +8991,8 @@ declare module TypeScript {
         private typeCheckContinueStatement(ast, context);
         private resolveBreakStatement(ast, context);
         private typeCheckBreakStatement(ast, context);
-        public resolveAST(ast: TypeScript.AST, inContextuallyTypedAssignment: boolean, context: TypeScript.PullTypeResolutionContext, specializingSignature?: boolean): TypeScript.PullSymbol;
-        private typeCheckAST(ast, inContextuallyTypedAssignment, context);
+        public resolveAST(ast: TypeScript.AST, isContextuallyTyped: boolean, context: TypeScript.PullTypeResolutionContext, specializingSignature?: boolean): TypeScript.PullSymbol;
+        private typeCheckAST(ast, isContextuallyTyped, context);
         private processPostTypeCheckWorkItems(context);
         private postTypeCheck(ast, context);
         private resolveRegularExpressionLiteral();
@@ -9013,7 +9011,7 @@ declare module TypeScript {
         private resolveQualifiedName(dottedNameAST, context);
         private computeQualifiedName(dottedNameAST, context);
         private shouldContextuallyTypeAnyFunctionExpression(functionExpressionAST, typeParameters, parameters, returnTypeAnnotation, context);
-        private resolveAnyFunctionExpression(funcDeclAST, typeParameters, parameters, returnTypeAnnotation, block, inContextuallyTypedAssignment, context);
+        private resolveAnyFunctionExpression(funcDeclAST, typeParameters, parameters, returnTypeAnnotation, block, isContextuallyTyped, context);
         private typeCheckArrowFunctionExpression(arrowFunction, context);
         private typeCheckAnyFunctionExpression(funcDeclAST, typeParameters, returnTypeAnnotation, block, context);
         private resolveThisExpression(thisExpression, context);
@@ -9023,34 +9021,37 @@ declare module TypeScript {
         private inTypeQuery(ast);
         private inArgumentListOfSuperInvocation(ast);
         private inConstructorParameterList(ast);
+        private isFunctionOrNonArrowFunctionExpression(decl);
         private typeCheckThisExpression(thisExpression, context);
         private getContextualClassSymbolForEnclosingDecl(ast);
         private inStaticMemberVariableDeclaration(ast);
-        private getEnclosingNonLambdaDecl(enclosingDecl);
+        private getEnclosingClassMemberDeclaration(enclosingDecl);
         private resolveSuperExpression(ast, context);
         private typeCheckSuperExpression(ast, context);
-        private resolveSimplePropertyAssignment(propertyAssignment, inContextuallyTypedAssignment, context);
-        private resolveFunctionPropertyAssignment(funcProp, inContextuallyTypedAssignment, context);
-        public resolveObjectLiteralExpression(expressionAST: TypeScript.ObjectLiteralExpression, inContextuallyTypedAssignment: boolean, context: TypeScript.PullTypeResolutionContext, additionalResults?: PullAdditionalObjectLiteralResolutionData): TypeScript.PullSymbol;
+        private resolveSimplePropertyAssignment(propertyAssignment, isContextuallyTyped, context);
+        private resolveFunctionPropertyAssignment(funcProp, isContextuallyTyped, context);
+        public resolveObjectLiteralExpression(expressionAST: TypeScript.ObjectLiteralExpression, isContextuallyTyped: boolean, context: TypeScript.PullTypeResolutionContext, additionalResults?: PullAdditionalObjectLiteralResolutionData): TypeScript.PullSymbol;
         private bindObjectLiteralMembers(objectLiteralDeclaration, objectLiteralTypeSymbol, objectLiteralMembers, isUsingExistingSymbol, pullTypeContext);
         private resolveObjectLiteralMembers(objectLiteralDeclaration, objectLiteralTypeSymbol, objectLiteralContextualType, objectLiteralMembers, stringIndexerSignature, numericIndexerSignature, allMemberTypes, allNumericMemberTypes, boundMemberSymbols, isUsingExistingSymbol, pullTypeContext, additionalResults?);
-        private computeObjectLiteralExpression(objectLitAST, inContextuallyTypedAssignment, context, additionalResults?);
+        private computeObjectLiteralExpression(objectLitAST, isContextuallyTyped, context, additionalResults?);
         private getPropertyAssignmentName(propertyAssignment);
         private stampObjectLiteralWithIndexSignature(objectLiteralSymbol, indexerTypeCandidates, contextualIndexSignature, context);
-        private resolveArrayLiteralExpression(arrayLit, inContextuallyTypedAssignment, context);
-        private computeArrayLiteralExpressionSymbol(arrayLit, inContextuallyTypedAssignment, context);
+        private resolveArrayLiteralExpression(arrayLit, isContextuallyTyped, context);
+        private computeArrayLiteralExpressionSymbol(arrayLit, isContextuallyTyped, context);
         private resolveElementAccessExpression(callEx, context);
         private typeCheckElementAccessExpression(callEx, context, symbolAndDiagnostic);
         private computeElementAccessExpressionSymbolAndDiagnostic(callEx, context);
         private getBothKindsOfIndexSignatures(enclosingType, context);
         private resolveBinaryAdditionOperation(binaryExpression, context);
-        private resolveLogicalOrExpression(binex, context);
         private bestCommonTypeOfTwoTypes(type1, type2, context);
-        private typeCheckLogicalOrExpression(binex, context);
+        private bestCommonTypeOfThreeTypes(type1, type2, type3, context);
+        private resolveLogicalOrExpression(binex, isContextuallyTyped, context);
         private resolveLogicalAndExpression(binex, context);
         private typeCheckLogicalAndExpression(binex, context);
-        private resolveConditionalExpression(trinex, context);
-        private typeCheckConditionalExpression(trinex, context);
+        private computeTypeOfConditionalExpression(leftType, rightType, isContextuallyTyped, context);
+        private resolveConditionalExpression(trinex, isContextuallyTyped, context);
+        private conditionExpressionTypesAreValid(leftType, rightType, expressionType, isContextuallyTyped, context);
+        private typeCheckConditionalExpression(trinex, isContextuallyTyped, context, leftType, rightType, expressionType);
         private resolveParenthesizedExpression(ast, context);
         private resolveExpressionStatement(ast, context);
         private typeCheckExpressionStatement(ast, context);
@@ -9123,11 +9124,11 @@ declare module TypeScript {
         private functionTypeArgumentArgumentTypePrivacyErrorReporter(declAST, flags, typeParameterAST, typeParameter, symbol, context);
         private functionArgumentTypePrivacyErrorReporter(declAST, flags, parameters, argIndex, paramSymbol, symbol, context);
         private functionReturnTypePrivacyErrorReporter(declAST, flags, returnTypeAnnotation, block, funcReturnType, symbol, context);
-        private enclosingClassIsDerived(decl);
+        private enclosingClassIsDerived(classDecl);
         private isSuperInvocationExpression(ast);
         private isSuperInvocationExpressionStatement(node);
         private getFirstStatementOfBlockOrNull(block);
-        private superCallMustBeFirstStatementInConstructor(enclosingConstructor, enclosingClass);
+        private superCallMustBeFirstStatementInConstructor(constructorDecl);
         private checkForThisCaptureInArrowFunction(expression);
         private typeCheckMembersAgainstIndexer(containerType, containerTypeDecl, context);
         private checkThatMemberIsSubtypeOfIndexer(member, indexSignature, astForError, context, enclosingDecl, isNumeric);
@@ -9308,6 +9309,7 @@ declare module TypeScript.PullHelpers {
     function symbolIsModule(symbol: TypeScript.PullSymbol): boolean;
     function isNameNumeric(name: string): boolean;
     function typeSymbolsAreIdentical(a: TypeScript.PullTypeSymbol, b: TypeScript.PullTypeSymbol): boolean;
+    function getRootType(type: TypeScript.PullTypeSymbol): TypeScript.PullTypeSymbol;
 }
 declare module TypeScript {
     enum GenerativeTypeClassification {
@@ -10556,9 +10558,8 @@ declare module Services {
     class CompletionSession {
         public fileName: string;
         public position: number;
-        public version: number;
         public entries: TypeScript.IdentiferNameHashTable<CachedCompletionEntryDetails>;
-        constructor(fileName: string, position: number, version: number, entries: TypeScript.IdentiferNameHashTable<CachedCompletionEntryDetails>);
+        constructor(fileName: string, position: number, entries: TypeScript.IdentiferNameHashTable<CachedCompletionEntryDetails>);
     }
 }
 declare module Services {
