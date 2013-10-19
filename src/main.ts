@@ -3,7 +3,6 @@
 
 /// <reference path='TypeScriptCodeHintProvider.ts' />
 /// <reference path='DocumentScriptSnapshot.ts' />
-/// <reference path='TypeScriptLanguageServiceHost.ts' />
 
 var AppInit = brackets.getModule('utils/AppInit');
 var CodeHintManager = brackets.getModule('editor/CodeHintManager');
@@ -28,14 +27,3 @@ CodeHintManager.registerHintProvider(
   new TypeScriptCodeHintProvider(DocumentManager),
   ['typescript'],
   0);
-
-//  AppInit.appReady(function () {
-//    CodeHintManager.registerHintProvider(
-//      new TypeScriptCodeHintProvider(),
-//      ['TypeScript'],
-//      0);
-//	});
-
-// var none = {};
-
-// export = none;

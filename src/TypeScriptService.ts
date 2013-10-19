@@ -29,6 +29,17 @@ class TypeScriptService {
     file: string,
     position: number,
     isMemberCompletion: boolean): JQueryPromise {
+
+    var existingScript = this._getScript(file);
+    if (existingScript && existingScript.getSnapshot) {
+      // make sure temporary scripts don't screw on a long position
+      var snapshot = existingScript.getSnapshot();
+      if (position>=snapshot.getLength())
+        position = 0;
+    }
+    else {
+      position = 0;
+    }
         
     var promise = $.Deferred(); 
     
@@ -55,9 +66,14 @@ class TypeScriptService {
 
   private _getScript(fileName: string): TypeScriptService.ScriptState {
     var script = this._scriptCache[fileName];
+    if (script)
+      return script;
+
+    this._scriptCache[fileName] = null;
     var resolveResult = this.resolveScript ? this.resolveScript(fileName) : null;
     if (!resolveResult)
       return null;
+
     if (resolveResult.getSnapshot) {
       this._scriptCache[fileName] = resolveResult;
       return resolveResult;
@@ -77,12 +93,8 @@ class TypeScriptService {
           }        
         }
       });
+      return null;
     }
-
-    if (script)
-      return script;
-
-    return null;
   }
   
   private _createLanguageServiceHost() {
@@ -102,8 +114,8 @@ class TypeScriptService {
         var script = this._getScript(fileName);
         if (script && script.getSnapshot)
           return script.getSnapshot();
-        else
-          return null;
+        this._scriptCache[fileName] = null;
+        return DocumentScriptSnapshot.empty;
       },
       getDiagnosticsObject: () => {
         return { log: (text:string) => this._log(text) };

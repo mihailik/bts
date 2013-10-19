@@ -2,23 +2,29 @@
 /// <reference path='typings/brackets.d.ts' />
 
 class DocumentScriptSnapshot implements TypeScript.IScriptSnapshot {
-  
-  constructor() {
+  static empty = {
+    getText: (start, end) => '',
+    getLength: () => 0,
+    getLineStartPositions: () => [],
+    getTextChangeRangeSinceVersion: (scriptVersion) => TypeScript.TextChangeRange.unchanged
+  };
+
+  constructor(private _doc: brackets.Document) {
   }
 
   getText(start: number, end: number): string {
-    throw null;
+    return '';
   }
 
   getLength(): number {
-    throw null;
+    return 0;
   }
 
   getLineStartPositions(): number[] {
-    throw null;
+    return [];
   }
 
   getTextChangeRangeSinceVersion(scriptVersion: number): TypeScript.TextChangeRange {
-    throw null;
+    return TypeScript.TextChangeRange.unchanged;
   }
 }

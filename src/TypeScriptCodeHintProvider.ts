@@ -2,13 +2,17 @@
 /// <reference path='typings/brackets.d.ts' />
 
 /// <reference path='TypeScriptService.ts' />
+/// <reference path='DocumentManagerScriptLoader.ts' />
+
 
 class TypeScriptCodeHintProvider {
   private _editor: any;
   private _service = new TypeScriptService();
+  private _scriptLoader;
 
   constructor (private _documentManager: brackets.DocumentManager) {
     this._service.resolveScript = (file:string) => this._resolveScript(file);
+    this._scriptLoader = new DocumentManagerScriptLoader(this._documentManager);
   }
 
   hasHints(
@@ -40,5 +44,7 @@ class TypeScriptCodeHintProvider {
   }
 
   private _resolveScript(file:string): any {
+    var load = this._scriptLoader.loadScript(file);
+    return load;
   }
 }
