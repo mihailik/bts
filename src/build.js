@@ -68,18 +68,7 @@ function recompileTypescriptServices(complete) {
   runTypeScriptCompiler(
     typescriptRepository+'/src/services/typescriptServices.ts', 'typings',
     function(txt) {
-      readOriginalText(function(originalText) {
-        var patchedText = originalText.replace(/function __item/,'//function __item');
-        if (patchedText===originalText) {
-          console.log('Bug with typescriptServices.d.ts generation has been fixed by TypeScript team. Please remove the patching code.');
-          deleteGeneratedJs(txt);
-        }
-        else {
-          writePatchedText(patchedText, function() {
-            deleteGeneratedJs(txt);
-          });
-        }
-      });
+      deleteGeneratedJs(txt);
     },
     '--declaration');
 
@@ -96,18 +85,6 @@ function recompileTypescriptServices(complete) {
     });
   }
 
-  function writePatchedText(patchedText, success) {
-    fs.writeFile('typings/typescriptServices.d.ts', patchedText, function(error) {
-      if (!error)
-        console.log('  Patching typescriptServices.d.ts: patched TypeScript bug.');
-      else
-        console.log('  Patching typescriptServices.d.ts: patching failed - '+error);
-  
-      // ignore patching failures
-      success();
-    });
-  }
-  
   function deleteGeneratedJs(txt) {
     fs.unlink('typings/typescriptServices.js', function(error) {
       if (error)
