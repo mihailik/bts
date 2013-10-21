@@ -166,10 +166,12 @@ var TypeScriptService = (function () {
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 var DocumentScriptSnapshot = (function () {
-    function DocumentScriptSnapshot(_doc) {
+    function DocumentScriptSnapshot(_doc, _changes) {
         this._doc = _doc;
+        this._changes = _changes;
     }
     DocumentScriptSnapshot.prototype.getText = function (start, end) {
+        //this._doc.
         return '';
     };
 
@@ -208,21 +210,41 @@ var DocumentState = (function () {
         var _this = this;
         this._doc = _doc;
         this._version = 0;
-        $(this._doc).on('change', function (change) {
+        this._changes = [];
+        $(this._doc).on('change', function (e, doc, change) {
             return _this._onChange(change);
         });
     }
     DocumentState.prototype.getVersion = function () {
-        return this._version;
+        return this._changes.length;
     };
 
     DocumentState.prototype.getSnapshot = function () {
-        return new DocumentScriptSnapshot(this._doc);
+        return new DocumentScriptSnapshot(this._doc, this._changes);
     };
 
     DocumentState.prototype._onChange = function (change) {
-        console.log(change);
-        this._version++;
+        var ch = {
+            offset: this._indexFromPos(change.from),
+            oldLength: this._linesLength(change.removed),
+            newLength: this._linesLength(change.text)
+        };
+        this._changes.push(ch);
+    };
+
+    DocumentState.prototype._linesLength = function (lines) {
+        var length = 0;
+        for (var i = 0; i < lines.length; i++) {
+            if (i > 0)
+                length++; // '\n'
+
+            length += lines[i].length;
+        }
+        return length;
+    };
+
+    DocumentState.prototype._indexFromPos = function (pos) {
+        return 0;
     };
     return DocumentState;
 })();

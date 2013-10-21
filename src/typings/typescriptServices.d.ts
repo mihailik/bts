@@ -3094,13 +3094,13 @@ declare module TypeScript {
         private createToken(fullStart, leadingTriviaInfo, start, kind, end, trailingTriviaInfo, isVariableWidthKeyword);
         private static triviaWindow;
         static scanTrivia(text: TypeScript.ISimpleText, start: number, length: number, isTrailing: boolean): TypeScript.ISyntaxTriviaList;
-        private scanTrivia(isTrailing);
+        private scanTrivia(underlyingText, underlyingTextStart, isTrailing);
         private scanTriviaInfo(diagnostics, isTrailing);
         private isNewLineCharacter(ch);
-        private scanWhitespaceTrivia();
-        private scanSingleLineCommentTrivia();
+        private scanWhitespaceTrivia(underlyingText, underlyingTextStart);
+        private scanSingleLineCommentTrivia(underlyingText, underlyingTextStart);
         private scanSingleLineCommentTriviaLength();
-        private scanMultiLineCommentTrivia();
+        private scanMultiLineCommentTrivia(underlyingText, underlyingTextStart);
         private scanMultiLineCommentTriviaLength(diagnostics);
         private scanLineTerminatorSequenceTrivia(ch);
         private scanLineTerminatorSequenceLength(ch);
@@ -6119,6 +6119,7 @@ declare module TypeScript {
     }
 }
 declare module TypeScript.Syntax {
+    function deferredTrivia(kind: TypeScript.SyntaxKind, text: TypeScript.ISimpleText, fullStart: number, fullWidth: number): TypeScript.ISyntaxTrivia;
     function trivia(kind: TypeScript.SyntaxKind, text: string): TypeScript.ISyntaxTrivia;
     function skippedTokenTrivia(token: TypeScript.ISyntaxToken): TypeScript.ISyntaxTrivia;
     function spaces(count: number): TypeScript.ISyntaxTrivia;
@@ -6783,10 +6784,12 @@ declare module TypeScript {
         ExtendsHeritageClause,
         ImplementsHeritageClause,
         ElseClause,
-        Comment,
     }
 }
 declare module TypeScript {
+    interface IIndexable<T> {
+        [s: string]: T;
+    }
     class BlockIntrinsics<T> {
         public prototype: T;
         public toString: T;
@@ -6798,6 +6801,7 @@ declare module TypeScript {
         [s: string]: T;
         constructor();
     }
+    function createIntrinsicsObject<T>(): IIndexable<T>;
     interface IHashTable<T> {
         getAllKeys(): string[];
         add(key: string, data: T): boolean;
@@ -7597,14 +7601,17 @@ declare module TypeScript {
         public emitWorker(emitter: TypeScript.Emitter): void;
         public structuralEquals(ast: CatchClause, includingPosition: boolean): boolean;
     }
-    class Comment extends AST {
-        public content: string;
-        public isBlockComment: boolean;
+    class Comment {
+        private _trivia;
         public endsLine: boolean;
+        public minChar: number;
+        public limChar: number;
         public text: string[];
         private docCommentText;
-        constructor(content: string, isBlockComment: boolean, endsLine: boolean);
-        public nodeType(): TypeScript.NodeType;
+        public trailingTriviaWidth: number;
+        constructor(_trivia: TypeScript.ISyntaxTrivia, endsLine: boolean, minChar: number, limChar: number);
+        public fullText(): string;
+        public isBlockComment(): boolean;
         public structuralEquals(ast: Comment, includingPosition: boolean): boolean;
         public isPinnedOrTripleSlash(): boolean;
         public getText(): string[];
@@ -8139,7 +8146,7 @@ declare module TypeScript {
         * Murmur hash is public domain.  Actual code is included below as reference.
         */
         private computeHash(key, seed);
-        public addKeys(keys: TypeScript.BlockIntrinsics<any>): void;
+        public addKeys(keys: TypeScript.IIndexable<any>): void;
         public add(value: string): void;
         public probablyContains(value: string): boolean;
         public isEquivalent(filter: BloomFilter): boolean;
@@ -8148,8 +8155,8 @@ declare module TypeScript {
 }
 declare module TypeScript {
     class IdentifierWalker extends TypeScript.SyntaxWalker {
-        public list: TypeScript.BlockIntrinsics<boolean>;
-        constructor(list: TypeScript.BlockIntrinsics<boolean>);
+        public list: TypeScript.IIndexable<boolean>;
+        constructor(list: TypeScript.IIndexable<boolean>);
         public visitToken(token: TypeScript.ISyntaxToken): void;
     }
 }
@@ -8299,10 +8306,10 @@ declare module TypeScript {
         private childDecls;
         private typeParameters;
         private synthesizedValDecl;
-        public childDeclTypeCache: TypeScript.BlockIntrinsics<PullDecl[]>;
-        public childDeclValueCache: TypeScript.BlockIntrinsics<PullDecl[]>;
-        public childDeclNamespaceCache: TypeScript.BlockIntrinsics<PullDecl[]>;
-        public childDeclTypeParameterCache: TypeScript.BlockIntrinsics<PullDecl[]>;
+        public childDeclTypeCache: TypeScript.IIndexable<PullDecl[]>;
+        public childDeclValueCache: TypeScript.IIndexable<PullDecl[]>;
+        public childDeclNamespaceCache: TypeScript.IIndexable<PullDecl[]>;
+        public childDeclTypeParameterCache: TypeScript.IIndexable<PullDecl[]>;
         constructor(declName: string, displayName: string, kind: TypeScript.PullElementKind, declFlags: TypeScript.PullElementFlags, span: TypeScript.TextSpan);
         public fileName(): string;
         public getParentPath(): PullDecl[];
@@ -9257,7 +9264,6 @@ declare module TypeScript {
 declare module TypeScript {
     class PullSymbolBinder {
         private semanticInfoChain;
-        private static functionTypeParameterCache;
         private declsBeingBound;
         constructor(semanticInfoChain: TypeScript.SemanticInfoChain);
         private getParent(decl, returnInstanceType?);

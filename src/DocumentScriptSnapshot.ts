@@ -9,10 +9,13 @@ class DocumentScriptSnapshot implements TypeScript.IScriptSnapshot {
     getTextChangeRangeSinceVersion: (scriptVersion) => TypeScript.TextChangeRange.unchanged
   };
 
-  constructor(private _doc: brackets.Document) {
+  constructor(
+    private _doc: brackets.Document,
+    private _changes: { offset: number; oldLength: number; newLength: number; }[]) {
   }
 
   getText(start: number, end: number): string {
+    //this._doc.
     return '';
   }
 
