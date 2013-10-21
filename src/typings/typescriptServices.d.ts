@@ -637,10 +637,11 @@ declare module TypeScript {
 }
 declare module TypeScript {
     class LineMap {
-        private _lineStarts;
+        private _computeLineStarts;
         private length;
         static empty: LineMap;
-        constructor(_lineStarts: number[], length: number);
+        private _lineStarts;
+        constructor(_computeLineStarts: () => number[], length: number);
         public toJSON(key: any): {
             lineStarts: number[];
             length: number;
@@ -2576,9 +2577,13 @@ declare module TypeScript.SimpleText {
     function fromScriptSnapshot(scriptSnapshot: TypeScript.IScriptSnapshot): TypeScript.ISimpleText;
 }
 declare module TypeScript.TextUtilities {
-    function parseLineStarts(text: TypeScript.ISimpleText): number[];
-    function getLengthOfLineBreakSlow(text: TypeScript.ISimpleText, index: number, c: number): number;
-    function getLengthOfLineBreak(text: TypeScript.ISimpleText, index: number): number;
+    interface ICharacterSequence {
+        charCodeAt(index: number): number;
+        length: number;
+    }
+    function parseLineStarts(text: ICharacterSequence): number[];
+    function getLengthOfLineBreakSlow(text: ICharacterSequence, index: number, c: number): number;
+    function getLengthOfLineBreak(text: ICharacterSequence, index: number): number;
     function isAnyLineBreakCharacter(c: number): boolean;
 }
 declare module TypeScript {
@@ -6790,17 +6795,6 @@ declare module TypeScript {
     interface IIndexable<T> {
         [s: string]: T;
     }
-    class BlockIntrinsics<T> {
-        public prototype: T;
-        public toString: T;
-        public toLocaleString: T;
-        public valueOf: T;
-        public hasOwnProperty: T;
-        public propertyIsEnumerable: T;
-        public isPrototypeOf: T;
-        [s: string]: T;
-        constructor();
-    }
     function createIntrinsicsObject<T>(): IIndexable<T>;
     interface IHashTable<T> {
         getAllKeys(): string[];
@@ -6883,9 +6877,11 @@ declare module TypeScript {
         public structuralEquals(ast: AST, includingPosition: boolean): boolean;
     }
     class ASTList extends AST {
+        private _fileName;
         public members: AST[];
         public separatorCount: number;
-        constructor(members: AST[], separatorCount?: number);
+        constructor(_fileName: string, members: AST[], separatorCount?: number);
+        public fileName(): string;
         public nodeType(): TypeScript.NodeType;
         public emit(emitter: TypeScript.Emitter): void;
         public structuralEquals(ast: ASTList, includingPosition: boolean): boolean;
@@ -8918,7 +8914,7 @@ declare module TypeScript {
         private typeCheckFunctionDeclaration(funcDeclAST, flags, name, typeParameters, parameters, returnTypeAnnotation, block, context);
         private resolveReturnTypeAnnotationOfFunctionDeclaration(funcDeclAST, flags, returnTypeAnnotation, context);
         private resolveMemberFunctionDeclaration(funcDecl, context);
-        private typeCheckMemberFunctionDeclaration(funcDeclAST, flags, name, typeParameters, parameters, returnTypeAnnotation, block, context);
+        private typeCheckMemberFunctionDeclaration(memberFuncDecl, context);
         private resolveAnyFunctionDeclaration(funcDecl, context);
         private resolveFunctionExpression(funcDecl, isContextuallyTyped, context);
         private resolveArrowFunctionExpression(funcDecl, isContextuallyTyped, context);
@@ -8934,11 +8930,9 @@ declare module TypeScript {
         private typeCheckSetAccessorDeclaration(funcDeclAST, flags, name, parameterList, block, context);
         private resolveList(list, context);
         private resolveVoidExpression(ast, context);
-        private typeCheckVoidExpression(ast, context);
         private resolveLogicalOperation(ast, context);
         private typeCheckLogicalOperation(binex, context);
         private resolveLogicalNotExpression(ast, context);
-        private typeCheckLogicalNotExpression(ast, context);
         private resolveUnaryArithmeticOperation(ast, context);
         private resolvePostfixUnaryExpression(ast, context);
         private isAnyOrNumberOrEnum(type);
@@ -8947,19 +8941,14 @@ declare module TypeScript {
         private resolveBinaryArithmeticExpression(binaryExpression, context);
         private typeCheckBinaryArithmeticExpression(binaryExpression, context);
         private resolveTypeOfExpression(ast, context);
-        private typeCheckTypeOfExpression(ast, context);
         private resolveThrowStatement(ast, context);
-        private typeCheckThrowStatement(ast, context);
         private resolveDeleteExpression(ast, context);
-        private typeCheckDeleteExpression(ast, context);
         private resolveInstanceOfExpression(ast, context);
         private typeCheckInstanceOfExpression(binaryExpression, context);
         private resolveCommaExpression(commaExpression, context);
-        private typeCheckCommaExpression(commaExpression, context);
         private resolveInExpression(ast, context);
         private typeCheckInExpression(binaryExpression, context);
         private resolveForStatement(ast, context);
-        private typeCheckForStatement(ast, context);
         private resolveForInStatement(ast, context);
         private typeCheckForInStatement(ast, context);
         private resolveWhileStatement(ast, context);
@@ -9022,19 +9011,18 @@ declare module TypeScript {
         private typeCheckArrowFunctionExpression(arrowFunction, context);
         private typeCheckAnyFunctionExpression(funcDeclAST, typeParameters, returnTypeAnnotation, block, context);
         private resolveThisExpression(thisExpression, context);
-        private computeThisTypeSymbol(ast);
         private inTypeArgumentList(ast);
         private inClassExtendsHeritageClause(ast);
         private inTypeQuery(ast);
         private inArgumentListOfSuperInvocation(ast);
         private inConstructorParameterList(ast);
         private isFunctionOrNonArrowFunctionExpression(decl);
-        private typeCheckThisExpression(thisExpression, context);
-        private getContextualClassSymbolForEnclosingDecl(ast);
+        private typeCheckThisExpression(thisExpression, context, enclosingDecl);
+        private getContextualClassSymbolForEnclosingDecl(ast, enclosingDecl);
         private inStaticMemberVariableDeclaration(ast);
         private getEnclosingClassMemberDeclaration(enclosingDecl);
         private resolveSuperExpression(ast, context);
-        private typeCheckSuperExpression(ast, context);
+        private typeCheckSuperExpression(ast, context, enclosingDecl);
         private resolveSimplePropertyAssignment(propertyAssignment, isContextuallyTyped, context);
         private resolveFunctionPropertyAssignment(funcProp, isContextuallyTyped, context);
         public resolveObjectLiteralExpression(expressionAST: TypeScript.ObjectLiteralExpression, isContextuallyTyped: boolean, context: TypeScript.PullTypeResolutionContext, additionalResults?: PullAdditionalObjectLiteralResolutionData): TypeScript.PullSymbol;
@@ -9054,14 +9042,11 @@ declare module TypeScript {
         private bestCommonTypeOfThreeTypes(type1, type2, type3, context);
         private resolveLogicalOrExpression(binex, isContextuallyTyped, context);
         private resolveLogicalAndExpression(binex, context);
-        private typeCheckLogicalAndExpression(binex, context);
         private computeTypeOfConditionalExpression(leftType, rightType, isContextuallyTyped, context);
         private resolveConditionalExpression(trinex, isContextuallyTyped, context);
         private conditionExpressionTypesAreValid(leftType, rightType, expressionType, isContextuallyTyped, context);
-        private typeCheckConditionalExpression(trinex, isContextuallyTyped, context, leftType, rightType, expressionType);
         private resolveParenthesizedExpression(ast, context);
         private resolveExpressionStatement(ast, context);
-        private typeCheckExpressionStatement(ast, context);
         public resolveInvocationExpression(callEx: TypeScript.InvocationExpression, context: TypeScript.PullTypeResolutionContext, additionalResults?: PullAdditionalCallResolutionData): TypeScript.PullSymbol;
         private typeCheckInvocationExpression(callEx, context);
         private computeInvocationExpressionSymbol(callEx, context, additionalResults);
@@ -9070,9 +9055,8 @@ declare module TypeScript {
         private postOverloadResolutionDiagnostics(diagnostic, additionalResults, context);
         private computeObjectCreationExpressionSymbol(callEx, context, additionalResults);
         private resolveCastExpression(assertionExpression, context);
-        private typeCheckCastExpression(assertionExpression, context);
+        private typeCheckCastExpression(assertionExpression, context, typeAssertionType);
         private resolveAssignmentExpression(binaryExpression, context);
-        private typeCheckAssignmentExpression(binaryExpression, context, leftExpr, rightType);
         private getInstanceTypeForAssignment(lhs, type, context);
         private mergeOrdered(a, b, context, comparisonInfo?);
         public widenType(ast: TypeScript.AST, type: TypeScript.PullTypeSymbol, context: TypeScript.PullTypeResolutionContext): TypeScript.PullTypeSymbol;

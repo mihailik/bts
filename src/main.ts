@@ -2,7 +2,6 @@
 /// <reference path='typings/brackets.d.ts' />
 
 /// <reference path='TypeScriptCodeHintProvider.ts' />
-/// <reference path='DocumentScriptSnapshot.ts' />
 
 var AppInit = brackets.getModule('utils/AppInit');
 var CodeHintManager = brackets.getModule('editor/CodeHintManager');

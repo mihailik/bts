@@ -21,8 +21,8 @@ var TypeScriptService = (function () {
         var _this = this;
         // make sure temporary empty scripts don't screw on a long position
         var existingScript = this._getScript(file);
-        if (existingScript && existingScript.getSnapshot) {
-            var snapshot = existingScript.getSnapshot();
+        if (existingScript && existingScript.getVersion) {
+            var snapshot = existingScript;
             if (position >= snapshot.getLength())
                 position = 0;
         } else {
@@ -61,7 +61,7 @@ var TypeScriptService = (function () {
         if (!resolveResult)
             return null;
 
-        if (resolveResult.getSnapshot) {
+        if (resolveResult.getVersion) {
             this._scriptCache[fileName] = resolveResult;
             return resolveResult;
         } else {
@@ -114,10 +114,10 @@ var TypeScriptService = (function () {
             },
             getScriptSnapshot: function (fileName) {
                 var script = _this._getScript(fileName);
-                if (script && script.getSnapshot)
-                    return script.getSnapshot();
+                if (script && script.getVersion)
+                    return script;
                 _this._scriptCache[fileName] = null;
-                return DocumentScriptSnapshot.empty;
+                return TypeScriptService._emptySnapshot;
             },
             getDiagnosticsObject: function () {
                 return { log: function (text) {
@@ -168,47 +168,7 @@ var TypeScriptService = (function () {
             }
         };
     };
-    return TypeScriptService;
-})();
-/// <reference path='typings/typescriptServices.d.ts' />
-/// <reference path='typings/brackets.d.ts' />
-var DocumentScriptSnapshot = (function () {
-    function DocumentScriptSnapshot(_docState) {
-        this._docState = _docState;
-    }
-    DocumentScriptSnapshot.prototype.getText = function (start, end) {
-        var startPos = this._docState.posFromIndex(start);
-        var endPos = this._docState.posFromIndex(end);
-        var text = this._docState.doc.getRange(startPos, endPos);
-        return text;
-    };
-
-    DocumentScriptSnapshot.prototype.getLength = function () {
-        var lineCount = this._docState.lineCount();
-        if (lineCount === 0)
-            return 0;
-
-        var lastLineStart = this._docState.indexFromPos({ line: lineCount - 1, ch: 0 });
-        var lastLine = this._docState.getLine(lineCount - 1);
-        return lastLineStart + lastLine.length;
-    };
-
-    DocumentScriptSnapshot.prototype.getLineStartPositions = function () {
-        var lineCount = this._docState.lineCount();
-        var result = [];
-        for (var i = 0; i < lineCount; i++) {
-        }
-        return result;
-    };
-
-    DocumentScriptSnapshot.prototype.getTextChangeRangeSinceVersion = function (scriptVersion) {
-        var changeRanges = this._docState.changes.map(function (change) {
-            return new TypeScript.TextChangeRange(TypeScript.TextSpan.fromBounds(change.offset, change.offset + change.oldLength), change.newLength);
-        });
-
-        return TypeScript.TextChangeRange.collapseChangesAcrossMultipleVersions(changeRanges);
-    };
-    DocumentScriptSnapshot.empty = {
+    TypeScriptService._emptySnapshot = {
         getText: function (start, end) {
             return '';
         },
@@ -222,35 +182,85 @@ var DocumentScriptSnapshot = (function () {
             return TypeScript.TextChangeRange.unchanged;
         }
     };
-    return DocumentScriptSnapshot;
+    return TypeScriptService;
 })();
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
-/// <reference path='DocumentScriptSnapshot.ts' />
 var DocumentState = (function () {
-    function DocumentState(doc) {
+    function DocumentState(_doc) {
         var _this = this;
-        this.doc = doc;
-        this.changes = [];
-        $(this.doc).on('change', function (e, doc, change) {
+        this._doc = _doc;
+        this._version = 0;
+        this._changes = [];
+        $(this._doc).on('change', function (e, doc, change) {
             return _this._onChange(change);
         });
     }
+    /**
+    * Not a part of IScriptSnapshot, unlike other public methods here.
+    * Need to find out who's calling into this (and kill them, naturally).
+    */
     DocumentState.prototype.getVersion = function () {
-        return this.changes.length;
+        return this._version;
     };
 
-    DocumentState.prototype.getSnapshot = function () {
-        return new DocumentScriptSnapshot(this);
+    DocumentState.prototype.getText = function (start, end) {
+        var startPos = this._posFromIndex(start);
+        var endPos = this._posFromIndex(end);
+        var text = this._doc.getRange(startPos, endPos);
+        return text;
+    };
+
+    DocumentState.prototype.getLength = function () {
+        var lineCount = this._lineCount();
+        if (lineCount === 0)
+            return 0;
+
+        var lastLineStart = this._indexFromPos({ line: lineCount - 1, ch: 0 });
+        var lastLine = this._getLine(lineCount - 1);
+        return lastLineStart + lastLine.length;
+    };
+
+    DocumentState.prototype.getLineStartPositions = function () {
+        var lineCount = this._lineCount();
+        var result = [];
+        var pos = { line: 0, ch: 0 };
+        for (var i = 0; i < lineCount; i++) {
+            pos.line = i;
+            pos.ch = 0;
+            var startLinePos = this._indexFromPos(pos);
+            result.push(startLinePos);
+        }
+        return result;
+    };
+
+    DocumentState.prototype.getTextChangeRangeSinceVersion = function (scriptVersion) {
+        var startVersion = this._version - this._changes.length;
+        if (scriptVersion < startVersion) {
+            var wholeText = this._doc.getText();
+            return new TypeScript.TextChangeRange(TypeScript.TextSpan.fromBounds(0, 0), wholeText.length);
+        }
+
+        var chunk;
+
+        if (scriptVersion = startVersion)
+            chunk = this._changes;
+        else
+            chunk = this._changes.slice(scriptVersion - startVersion);
+        this._changes.length = 0;
+        return TypeScript.TextChangeRange.collapseChangesAcrossMultipleVersions(this._changes);
     };
 
     DocumentState.prototype._onChange = function (change) {
-        var ch = {
-            offset: this.indexFromPos(change.from),
-            oldLength: this._totalLengthOfLines(change.removed),
-            newLength: this._totalLengthOfLines(change.text)
-        };
-        this.changes.push(ch);
+        var offset = this._indexFromPos(change.from);
+        var oldLength = this._totalLengthOfLines(change.removed);
+        var newLength = this._totalLengthOfLines(change.text);
+
+        var ch = new TypeScript.TextChangeRange(TypeScript.TextSpan.fromBounds(offset, offset + oldLength), newLength);
+
+        this._changes.push(ch);
+
+        this._version++;
     };
 
     DocumentState.prototype._totalLengthOfLines = function (lines) {
@@ -264,23 +274,23 @@ var DocumentState = (function () {
         return length;
     };
 
-    DocumentState.prototype.indexFromPos = function (pos) {
-        var index = this.doc['_masterEditor']._codeMirror.indexFromPos(pos);
+    DocumentState.prototype._indexFromPos = function (pos) {
+        var index = this._doc['_masterEditor']._codeMirror.indexFromPos(pos);
         return index;
     };
 
-    DocumentState.prototype.posFromIndex = function (index) {
-        var pos = this.doc['_masterEditor']._codeMirror.posFromIndex(index);
+    DocumentState.prototype._posFromIndex = function (index) {
+        var pos = this._doc['_masterEditor']._codeMirror.posFromIndex(index);
         return pos;
     };
 
-    DocumentState.prototype.lineCount = function () {
-        var lineCount = this.doc['_masterEditor']._codeMirror.lineCount();
+    DocumentState.prototype._lineCount = function () {
+        var lineCount = this._doc['_masterEditor']._codeMirror.lineCount();
         return lineCount;
     };
 
-    DocumentState.prototype.getLine = function (n) {
-        var line = this.doc['_masterEditor']._codeMirror.getLine(n);
+    DocumentState.prototype._getLine = function (n) {
+        var line = this._doc['_masterEditor']._codeMirror.getLine(n);
         return line;
     };
     return DocumentState;
@@ -336,7 +346,7 @@ var TypeScriptCodeHintProvider = (function () {
         console.log('getCompletionsAtPosition...');
         var completionPromise = this._service.getCompletionsAtPosition(path, 2, false);
         completionPromise.done(function (x, y) {
-            console.log('completionPromise.done' + x + y + '...');
+            console.log('completionPromise.done', x, y, '...');
         });
     };
 
@@ -353,7 +363,6 @@ var TypeScriptCodeHintProvider = (function () {
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 /// <reference path='TypeScriptCodeHintProvider.ts' />
-/// <reference path='DocumentScriptSnapshot.ts' />
 var AppInit = brackets.getModule('utils/AppInit');
 var CodeHintManager = brackets.getModule('editor/CodeHintManager');
 var Async = brackets.getModule('utils/Async');

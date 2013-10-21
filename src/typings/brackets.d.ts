@@ -462,7 +462,7 @@ declare module brackets {
      *      Document's line endings setting (based on OS & the original text loaded from disk).
      *      If false, line endings are always \n (like all the other Document text getter methods).
      */
-    getText(useOriginalLineEndings?: boolean): any;
+    getText(useOriginalLineEndings?: boolean): string;
 
     /**
      * Sets the contents of the document. Treated as an edit. Line endings will be rewritten to

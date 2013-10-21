@@ -2,6 +2,13 @@
 
 class TypeScriptService {
 
+  private static _emptySnapshot = {
+    getText: (start, end) => '',
+    getLength: () => 0,
+    getLineStartPositions: () => [],
+    getTextChangeRangeSinceVersion: (scriptVersion) => TypeScript.TextChangeRange.unchanged
+  };
+
   logLevels = {
     information: true,
     debug: true,
@@ -33,8 +40,8 @@ class TypeScriptService {
 
     // make sure temporary empty scripts don't screw on a long position
     var existingScript = this._getScript(file);
-    if (existingScript && existingScript.getSnapshot) {
-      var snapshot = existingScript.getSnapshot();
+    if (existingScript && existingScript.getVersion) {
+      var snapshot = existingScript;
       if (position>=snapshot.getLength())
         position = 0;
     }
@@ -75,7 +82,7 @@ class TypeScriptService {
     if (!resolveResult)
       return null;
 
-    if (resolveResult.getSnapshot) {
+    if (resolveResult.getVersion) {
       this._scriptCache[fileName] = resolveResult;
       return resolveResult;
     }
@@ -120,10 +127,10 @@ class TypeScriptService {
       getScriptByteOrderMark: (fileName: string) => ByteOrderMark.None,
       getScriptSnapshot: (fileName: string) => {
         var script = this._getScript(fileName);
-        if (script && script.getSnapshot)
-          return script.getSnapshot();
+        if (script && script.getVersion)
+          return script;
         this._scriptCache[fileName] = null;
-        return DocumentScriptSnapshot.empty;
+        return TypeScriptService._emptySnapshot;
       },
       getDiagnosticsObject: () => {
         return { log: (text:string) => this._log(text) };
@@ -157,8 +164,7 @@ class TypeScriptService {
 }
                                               
 module TypeScriptService {
-  export interface ScriptState {
+  export interface ScriptState extends TypeScript.IScriptSnapshot {
     getVersion(): number;
-    getSnapshot(): TypeScript.IScriptSnapshot;
   }
 }
