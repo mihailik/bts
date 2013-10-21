@@ -222,15 +222,12 @@ var DocumentState = (function () {
     };
 
     DocumentState.prototype.getLineStartPositions = function () {
-        var lineCount = this._lineCount();
         var result = [];
-        var pos = { line: 0, ch: 0 };
-        for (var i = 0; i < lineCount; i++) {
-            pos.line = i;
-            pos.ch = 0;
-            var startLinePos = this._indexFromPos(pos);
-            result.push(startLinePos);
-        }
+        var current = 0;
+        this._doc['_masterEditor']._codeMirror.eachLine(function (lineHandle) {
+            result.push(current);
+            current += lineHandle.length + 1; // plus EOL character
+        });
         return result;
     };
 

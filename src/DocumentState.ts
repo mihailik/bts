@@ -36,15 +36,12 @@ class DocumentState implements TypeScript.IScriptSnapshot {
   }
 
   getLineStartPositions(): number[] {
-    var lineCount = this._lineCount();
     var result: number[] = [];
-    var pos = {line:0, ch:0};
-    for (var i = 0; i < lineCount; i++) {
-      pos.line = i;
-      pos.ch = 0;
-      var startLinePos = this._indexFromPos(pos);
-      result.push(startLinePos)
-    }
+    var current = 0;
+    this._doc['_masterEditor']._codeMirror.eachLine((lineHandle) => {
+      result.push(current);
+      current += lineHandle.length+1; // plus EOL character
+    });
     return result;
   }
 
@@ -92,7 +89,7 @@ class DocumentState implements TypeScript.IScriptSnapshot {
     }
     return length;
   }
-  
+
   private _indexFromPos(pos: {line:number;ch:number;}): number {
     var index = this._doc['_masterEditor']._codeMirror.indexFromPos(pos);
     return index;
