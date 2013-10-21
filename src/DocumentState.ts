@@ -5,31 +5,30 @@
 
 class DocumentState {
 
-  private _version = 0;
-  private _changes: { offset: number; oldLength: number; newLength: number; }[] = [];
+  changes: { offset: number; oldLength: number; newLength: number; }[] = [];
 
-  constructor(private _doc: brackets.Document) {
-    $(this._doc).on('change', (e,doc,change) => this._onChange(change));
+  constructor(public doc: brackets.Document) {
+    $(this.doc).on('change', (e,doc,change) => this._onChange(change));
   }
 
   getVersion(): number {
-    return this._changes.length;
+    return this.changes.length;
   }
 
   getSnapshot(): TypeScript.IScriptSnapshot {
-    return new DocumentScriptSnapshot(this._doc, this._changes);
+    return new DocumentScriptSnapshot(this);
   }
 
   private _onChange(change): void {
     var ch = {
-      offset: this._indexFromPos(change.from),
-      oldLength: this._linesLength(change.removed),
-      newLength: this._linesLength(change.text)
+      offset: this.indexFromPos(change.from),
+      oldLength: this._totalLengthOfLines(change.removed),
+      newLength: this._totalLengthOfLines(change.text)
     };
-    this._changes.push(ch) ;
+    this.changes.push(ch) ;
   }
                         
-  private _linesLength(lines: string[]): number {
+  private _totalLengthOfLines(lines: string[]): number {
     var length = 0;
     for (var i = 0; i < lines.length; i++) {
       if (i>0)
@@ -40,7 +39,23 @@ class DocumentState {
     return length;
   }
   
-  private _indexFromPos(pos) {
-    return 0;
+  indexFromPos(pos: {line:number;ch:number;}): number {
+    var index = this.doc['_masterEditor']._codeMirror.indexFromPos(pos);
+    return index;
+  }
+
+  posFromIndex(index: number): {line:number;ch:number;} {
+    var pos = this.doc['_masterEditor']._codeMirror.posFromIndex(index);
+    return pos;
+  }
+
+  lineCount(): number {
+    var lineCount = this.doc['_masterEditor']._codeMirror.lineCount();
+    return lineCount;
+  }
+
+  getLine(n: number): string {
+    var line = this.doc['_masterEditor']._codeMirror.getLine(n);
+    return line;
   }
 }

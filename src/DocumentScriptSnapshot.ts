@@ -10,24 +10,48 @@ class DocumentScriptSnapshot implements TypeScript.IScriptSnapshot {
   };
 
   constructor(
-    private _doc: brackets.Document,
-    private _changes: { offset: number; oldLength: number; newLength: number; }[]) {
+    private _docState: {
+      changes: { offset: number; oldLength: number; newLength: number; }[];
+      doc: brackets.Document;
+      posFromIndex(index: number): {line:number;ch:number;};
+      indexFromPos(pos: {line:number;ch:number;}): number;
+      lineCount(): number;
+      getLine(n:number): string;
+    }) {
   }
 
   getText(start: number, end: number): string {
-    //this._doc.
-    return '';
+    var startPos = this._docState.posFromIndex(start);
+    var endPos = this._docState.posFromIndex(end);
+    var text = this._docState.doc.getRange(startPos, endPos);
+    return text;
   }
 
   getLength(): number {
-    return 0;
+    var lineCount = this._docState.lineCount();
+    if (lineCount===0)
+      return 0;
+
+    var lastLineStart = this._docState.indexFromPos({line:lineCount-1,ch:0});
+    var lastLine = this._docState.getLine(lineCount-1);
+    return lastLineStart + lastLine.length;
   }
 
   getLineStartPositions(): number[] {
-    return [];
+    var lineCount = this._docState.lineCount();
+    var result: number[] = [];
+    for (var i = 0; i < lineCount; i++) {
+      
+    }
+    return result;
   }
 
   getTextChangeRangeSinceVersion(scriptVersion: number): TypeScript.TextChangeRange {
-    return TypeScript.TextChangeRange.unchanged;
+    var changeRanges = this._docState.changes.map(change =>
+      new TypeScript.TextChangeRange(
+        TypeScript.TextSpan.fromBounds(change.offset, change.offset+change.oldLength),
+        change.newLength));
+    
+    return TypeScript.TextChangeRange.collapseChangesAcrossMultipleVersions(changeRanges);
   }
 }

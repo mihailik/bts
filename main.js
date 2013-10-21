@@ -12,6 +12,7 @@ var TypeScriptService = (function () {
         this.resolveScript = null;
         this._scriptCache = {};
         this._requestedFiles = {};
+        this._requestedFileCount = 0;
         this._requestContinuations = [];
         var factory = new Services.TypeScriptServicesFactory();
         this._service = factory.createPullLanguageService(this._createLanguageServiceHost());
@@ -33,7 +34,7 @@ var TypeScriptService = (function () {
         var attempt = function () {
             var result = _this._service.getCompletionsAtPosition(file, position, isMemberCompletion);
 
-            if (_this._requestedFiles.length == 0) {
+            if (_this._requestedFileCount === 0) {
                 promise.resolve(result);
             } else {
                 _this._requestContinuations.push(attempt);
@@ -64,10 +65,16 @@ var TypeScriptService = (function () {
             this._scriptCache[fileName] = resolveResult;
             return resolveResult;
         } else {
-            this._requestedFiles[fileName] = true;
+            if (!this._requestedFiles[fileName]) {
+                this._requestedFiles[fileName] = true;
+                this._requestedFileCount++;
+            }
             resolveResult.done(function (script) {
                 _this._scriptCache[fileName] = script;
-                delete _this._requestedFiles[fileName];
+                if (_this._requestedFiles[fileName]) {
+                    delete _this._requestedFiles[fileName];
+                    _this._requestedFileCount--;
+                }
                 if (Object.keys(_this._requestedFiles).length == 0) {
                     if (_this._requestContinuations.length) {
                         var continuations = _this._requestContinuations;
@@ -166,25 +173,40 @@ var TypeScriptService = (function () {
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 var DocumentScriptSnapshot = (function () {
-    function DocumentScriptSnapshot(_doc, _changes) {
-        this._doc = _doc;
-        this._changes = _changes;
+    function DocumentScriptSnapshot(_docState) {
+        this._docState = _docState;
     }
     DocumentScriptSnapshot.prototype.getText = function (start, end) {
-        //this._doc.
-        return '';
+        var startPos = this._docState.posFromIndex(start);
+        var endPos = this._docState.posFromIndex(end);
+        var text = this._docState.doc.getRange(startPos, endPos);
+        return text;
     };
 
     DocumentScriptSnapshot.prototype.getLength = function () {
-        return 0;
+        var lineCount = this._docState.lineCount();
+        if (lineCount === 0)
+            return 0;
+
+        var lastLineStart = this._docState.indexFromPos({ line: lineCount - 1, ch: 0 });
+        var lastLine = this._docState.getLine(lineCount - 1);
+        return lastLineStart + lastLine.length;
     };
 
     DocumentScriptSnapshot.prototype.getLineStartPositions = function () {
-        return [];
+        var lineCount = this._docState.lineCount();
+        var result = [];
+        for (var i = 0; i < lineCount; i++) {
+        }
+        return result;
     };
 
     DocumentScriptSnapshot.prototype.getTextChangeRangeSinceVersion = function (scriptVersion) {
-        return TypeScript.TextChangeRange.unchanged;
+        var changeRanges = this._docState.changes.map(function (change) {
+            return new TypeScript.TextChangeRange(TypeScript.TextSpan.fromBounds(change.offset, change.offset + change.oldLength), change.newLength);
+        });
+
+        return TypeScript.TextChangeRange.collapseChangesAcrossMultipleVersions(changeRanges);
     };
     DocumentScriptSnapshot.empty = {
         getText: function (start, end) {
@@ -206,33 +228,32 @@ var DocumentScriptSnapshot = (function () {
 /// <reference path='typings/brackets.d.ts' />
 /// <reference path='DocumentScriptSnapshot.ts' />
 var DocumentState = (function () {
-    function DocumentState(_doc) {
+    function DocumentState(doc) {
         var _this = this;
-        this._doc = _doc;
-        this._version = 0;
-        this._changes = [];
-        $(this._doc).on('change', function (e, doc, change) {
+        this.doc = doc;
+        this.changes = [];
+        $(this.doc).on('change', function (e, doc, change) {
             return _this._onChange(change);
         });
     }
     DocumentState.prototype.getVersion = function () {
-        return this._changes.length;
+        return this.changes.length;
     };
 
     DocumentState.prototype.getSnapshot = function () {
-        return new DocumentScriptSnapshot(this._doc, this._changes);
+        return new DocumentScriptSnapshot(this);
     };
 
     DocumentState.prototype._onChange = function (change) {
         var ch = {
-            offset: this._indexFromPos(change.from),
-            oldLength: this._linesLength(change.removed),
-            newLength: this._linesLength(change.text)
+            offset: this.indexFromPos(change.from),
+            oldLength: this._totalLengthOfLines(change.removed),
+            newLength: this._totalLengthOfLines(change.text)
         };
-        this._changes.push(ch);
+        this.changes.push(ch);
     };
 
-    DocumentState.prototype._linesLength = function (lines) {
+    DocumentState.prototype._totalLengthOfLines = function (lines) {
         var length = 0;
         for (var i = 0; i < lines.length; i++) {
             if (i > 0)
@@ -243,8 +264,24 @@ var DocumentState = (function () {
         return length;
     };
 
-    DocumentState.prototype._indexFromPos = function (pos) {
-        return 0;
+    DocumentState.prototype.indexFromPos = function (pos) {
+        var index = this.doc['_masterEditor']._codeMirror.indexFromPos(pos);
+        return index;
+    };
+
+    DocumentState.prototype.posFromIndex = function (index) {
+        var pos = this.doc['_masterEditor']._codeMirror.posFromIndex(index);
+        return pos;
+    };
+
+    DocumentState.prototype.lineCount = function () {
+        var lineCount = this.doc['_masterEditor']._codeMirror.lineCount();
+        return lineCount;
+    };
+
+    DocumentState.prototype.getLine = function (n) {
+        var line = this.doc['_masterEditor']._codeMirror.getLine(n);
+        return line;
     };
     return DocumentState;
 })();

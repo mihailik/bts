@@ -34,7 +34,7 @@ class TypeScriptCodeHintProvider {
     console.log('getCompletionsAtPosition...');
     var completionPromise = this._service.getCompletionsAtPosition(path, 2, false);
     completionPromise.done((x,y) => {
-      console.log('completionPromise.done'+x+y+'...');
+      console.log('completionPromise.done',x,y,'...');
     });
   }
 

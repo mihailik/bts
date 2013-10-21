@@ -16,6 +16,7 @@ class TypeScriptService {
 
   private _scriptCache: any = {};
   private _requestedFiles: any = {};
+  private _requestedFileCount = 0;
   private _requestContinuations: { (): void; }[] = [];
   
   private _service: Services.ILanguageService;
@@ -47,7 +48,7 @@ class TypeScriptService {
       var result = this._service.getCompletionsAtPosition(
         file, position, isMemberCompletion);
 
-      if (this._requestedFiles.length==0) {
+      if (this._requestedFileCount===0) {
         promise.resolve(result);
       }
       else {
@@ -79,10 +80,16 @@ class TypeScriptService {
       return resolveResult;
     }
     else {
-      this._requestedFiles[fileName] = true;
+      if (!this._requestedFiles[fileName]) {
+        this._requestedFiles[fileName] = true;
+        this._requestedFileCount++;
+      }
       resolveResult.done((script: TypeScriptService.ScriptState) => {
         this._scriptCache[fileName] = script;
-        delete this._requestedFiles[fileName];
+        if (this._requestedFiles[fileName]) {
+          delete this._requestedFiles[fileName];
+          this._requestedFileCount--;
+        }
         if (Object.keys(this._requestedFiles).length==0) {
           if (this._requestContinuations.length) {
             var continuations = this._requestContinuations;
