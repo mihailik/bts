@@ -27,12 +27,14 @@ class TypeScriptCodeHintProvider {
 
   getHints(
     implicitChar: string): any {
-    console.log('getCurrentDocument...');
     var doc = this._documentManager.getCurrentDocument();
     var path = doc.file.fullPath;
     var result = $.Deferred();
+
+    var cursorPos = this._editor.getCursorPos();
+    var index = this._editor['_codeMirror'].indexFromPos(cursorPos);
     console.log('getCompletionsAtPosition...');
-    var completionPromise = this._service.getCompletionsAtPosition(path, 2, false);
+    var completionPromise = this._service.getCompletionsAtPosition(path, index, false);
     completionPromise.done((x,y) => {
       console.log('completionPromise.done',x,y,'...');
     });

@@ -47,6 +47,7 @@ class DocumentState implements TypeScript.IScriptSnapshot {
 
   getTextChangeRangeSinceVersion(scriptVersion: number): TypeScript.TextChangeRange {
     var startVersion = this._version - this._changes.length;
+
     if (scriptVersion < startVersion) {
       var wholeText = this._doc.getText();
       return new TypeScript.TextChangeRange(

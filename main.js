@@ -233,6 +233,7 @@ var DocumentState = (function () {
 
     DocumentState.prototype.getTextChangeRangeSinceVersion = function (scriptVersion) {
         var startVersion = this._version - this._changes.length;
+
         if (scriptVersion < startVersion) {
             var wholeText = this._doc.getText();
             return new TypeScript.TextChangeRange(TypeScript.TextSpan.fromBounds(0, 0), wholeText.length);
@@ -336,12 +337,14 @@ var TypeScriptCodeHintProvider = (function () {
     };
 
     TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
-        console.log('getCurrentDocument...');
         var doc = this._documentManager.getCurrentDocument();
         var path = doc.file.fullPath;
         var result = $.Deferred();
+
+        var cursorPos = this._editor.getCursorPos();
+        var index = this._editor['_codeMirror'].indexFromPos(cursorPos);
         console.log('getCompletionsAtPosition...');
-        var completionPromise = this._service.getCompletionsAtPosition(path, 2, false);
+        var completionPromise = this._service.getCompletionsAtPosition(path, index, false);
         completionPromise.done(function (x, y) {
             console.log('completionPromise.done', x, y, '...');
         });
