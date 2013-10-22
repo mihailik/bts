@@ -410,6 +410,7 @@ declare module TypeScript {
         Constructor_signature_which_lacks_return_type_annotation_implicitly_has_an_any_return_type: string;
         Lambda_Function_which_lacks_return_type_annotation_implicitly_has_an_any_return_type: string;
         Array_Literal_implicitly_has_an_any_type_from_widening: string;
+        _0_which_lacks_get_accessor_and_parameter_type_annotation_on_set_accessor_implicitly_has_an_any_type: string;
     };
 }
 declare var require: any;
@@ -2357,6 +2358,10 @@ declare module TypeScript {
             "category": DiagnosticCategory;
         };
         "Array Literal implicitly has an 'any' type from widening.": {
+            "code": number;
+            "category": DiagnosticCategory;
+        };
+        "'{0}', which lacks 'get' accessor and parameter type annotation on 'set' accessor, implicitly has an 'any' type.": {
             "code": number;
             "category": DiagnosticCategory;
         };
@@ -8312,6 +8317,8 @@ declare module TypeScript {
         public getParentDecl(): PullDecl;
         public semanticInfoChain(): TypeScript.SemanticInfoChain;
         public isExternalModule(): boolean;
+        public getEnclosingDecl(): PullDecl;
+        public _getEnclosingDeclFromParentDecl(): PullDecl;
         /** Use getName for type checking purposes, and getDisplayName to report an error or display info to the user.
         * They will differ when the identifier is an escaped unicode character or the identifier "__proto__".
         */
@@ -8350,6 +8357,7 @@ declare module TypeScript {
         public getParentDecl(): PullDecl;
         public semanticInfoChain(): TypeScript.SemanticInfoChain;
         public isExternalModule(): boolean;
+        public getEnclosingDecl(): RootPullDecl;
     }
     class NormalPullDecl extends PullDecl {
         private parentDecl;
@@ -8360,6 +8368,7 @@ declare module TypeScript {
         public getParentPath(): PullDecl[];
         public semanticInfoChain(): TypeScript.SemanticInfoChain;
         public isExternalModule(): boolean;
+        public getEnclosingDecl(): PullDecl;
     }
     class PullFunctionExpressionDecl extends NormalPullDecl {
         private functionExpressionName;
@@ -8924,8 +8933,11 @@ declare module TypeScript {
         private resolveGetterReturnTypeAnnotation(getterFunctionDeclarationAst, enclosingDecl, context);
         private resolveSetterArgumentTypeAnnotation(setterFunctionDeclarationAst, enclosingDecl, context);
         private resolveAccessorDeclaration(funcDeclAst, context);
+        private typeCheckAccessorDeclaration(funcDeclAst, context);
         private resolveGetAccessorDeclaration(funcDeclAST, parameters, returnTypeAnnotation, block, setterAnnotatedType, context);
+        private checkIfGetterAndSetterTypeMatch(funcDeclAST, context);
         private typeCheckGetAccessorDeclaration(funcDeclAST, flags, name, parameters, returnTypeAnnotation, block, context);
+        static hasSetAccessorParameterTypeAnnotation(setAccessor: TypeScript.SetAccessor): boolean;
         private resolveSetAccessorDeclaration(funcDeclAST, parameterList, context);
         private typeCheckSetAccessorDeclaration(funcDeclAST, flags, name, parameterList, block, context);
         private resolveList(list, context);
@@ -9025,6 +9037,7 @@ declare module TypeScript {
         private typeCheckSuperExpression(ast, context, enclosingDecl);
         private resolveSimplePropertyAssignment(propertyAssignment, isContextuallyTyped, context);
         private resolveFunctionPropertyAssignment(funcProp, isContextuallyTyped, context);
+        private typeCheckFunctionPropertyAssignment(funcProp, isContextuallyTyped, context);
         public resolveObjectLiteralExpression(expressionAST: TypeScript.ObjectLiteralExpression, isContextuallyTyped: boolean, context: TypeScript.PullTypeResolutionContext, additionalResults?: PullAdditionalObjectLiteralResolutionData): TypeScript.PullSymbol;
         private bindObjectLiteralMembers(objectLiteralDeclaration, objectLiteralTypeSymbol, objectLiteralMembers, isUsingExistingSymbol, pullTypeContext);
         private resolveObjectLiteralMembers(objectLiteralDeclaration, objectLiteralTypeSymbol, objectLiteralContextualType, objectLiteralMembers, stringIndexerSignature, numericIndexerSignature, allMemberTypes, allNumericMemberTypes, boundMemberSymbols, isUsingExistingSymbol, pullTypeContext, additionalResults?);
@@ -10599,6 +10612,7 @@ declare module Services {
         public getCompletionsAtPosition(fileName: string, position: number, isMemberCompletion: boolean): Services.CompletionInfo;
         private getCompletionEntriesFromSymbols(symbolInfo, result);
         private getCompletionEntriesFromDecls(decls, result);
+        private getResolvedCompletionEntryDetailsFromSymbol(symbol, enclosingScopeSymbol);
         private getCompletionEntriesForKeywords(keywords, result);
         public getCompletionEntryDetails(fileName: string, position: number, entryName: string): Services.CompletionEntryDetails;
         private tryFindDeclFromPreviousCompilerVersion(invalidatedDecl);

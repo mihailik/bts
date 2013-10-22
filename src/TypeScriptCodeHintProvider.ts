@@ -33,11 +33,24 @@ class TypeScriptCodeHintProvider {
 
     var cursorPos = this._editor.getCursorPos();
     var index = this._editor['_codeMirror'].indexFromPos(cursorPos);
-    console.log('getCompletionsAtPosition...');
+
+    var logStr = 'getCompletionsAtPosition('+index+','+path+')...';
+    if (cursorPos.ch>0) {
+      logStr += ' // '+doc.getRange({line:cursorPos.line,ch:0},cursorPos);
+    }
+
+    console.log(logStr);
     var completionPromise = this._service.getCompletionsAtPosition(path, index, false);
-    completionPromise.done((x,y) => {
-      console.log('completionPromise.done',x,y,'...');
+    completionPromise.done((x: Services.CompletionInfo) => {
+      console.log('completionPromise.done',x);
+      if (x) {
+        result.resolve({
+          hints: x.entries.map((e) => e.name+' '+e.kindModifiers + ' ' + e.kind)
+        });
+      }
     });
+
+    return result;
   }
 
   insertHint(
