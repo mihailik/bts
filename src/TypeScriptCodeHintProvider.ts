@@ -9,6 +9,7 @@ class TypeScriptCodeHintProvider {
   private _editor: any;
   private _service = new TypeScriptService();
   private _scriptLoader;
+  private _hintRequest = 0;
 
   constructor (private _documentManager: brackets.DocumentManager) {
     this._service.resolveScript = (file:string) => this._resolveScript(file);
@@ -21,12 +22,16 @@ class TypeScriptCodeHintProvider {
     if (this._editor !== editor) {
       this._editor = editor;
     }
+    this._hintRequest++;
 
     return !implicitChar; // for now avoid hints except on ctrl+Space
   }
 
   getHints(
     implicitChar: string): any {
+
+    this._hintRequest++;
+
     var doc = this._documentManager.getCurrentDocument();
     var path = doc.file.fullPath;
     var result = $.Deferred();
@@ -36,18 +41,35 @@ class TypeScriptCodeHintProvider {
 
     var logStr = 'getCompletionsAtPosition('+index+','+path+')...';
     if (cursorPos.ch>0) {
-      logStr += ' // '+doc.getRange({line:cursorPos.line,ch:0},cursorPos);
+      logStr += ' // '+doc.getRange({line:cursorPos.line,ch:0},cursorPos)+'|';
     }
-
     console.log(logStr);
+
+    var rememberHintRequest = this._hintRequest;
+
     var completionPromise = this._service.getCompletionsAtPosition(path, index, false);
     completionPromise.done((x: Services.CompletionInfo) => {
-      console.log('completionPromise.done',x);
-      if (x) {
-        result.resolve({
-          hints: x.entries.map((e) => e.name+' '+e.kindModifiers + ' ' + e.kind)
-        });
+
+      if (rememberHintRequest != this._hintRequest) {
+        console.log('completionPromise.done out of time:',x);
+        result.reject();
+        return;
       }
+
+      if (!x) {
+        console.log('completionPromise.done: null');
+        result.reject();
+        return;
+      }
+
+      console.log('completionPromise.done:',x);
+
+      result.resolve({
+        hints: x.entries.map((e) =>
+          e.kind==='keyword' ?
+             e.name :
+             e.name+' '+e.kindModifiers + ' ' + e.kind)
+      });
     });
 
     return result;

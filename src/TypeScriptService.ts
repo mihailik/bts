@@ -115,21 +115,36 @@ class TypeScriptService {
   private _createLanguageServiceHost() {
     return {
       getCompilationSettings: () => this.compilationSettings,
-      getScriptFileNames: () => Object.keys(this._scriptCache),
+      getScriptFileNames: () => {
+        var result = Object.keys(this._scriptCache);
+        console.log('...getScriptFileNames():',result);
+        return result;
+      },
       getScriptVersion: (fileName: string) => {
+        var result: number;
         var script = this._getScript(fileName);
         if (script && script.getVersion)
-          return script.getVersion();
+          result= script.getVersion();
         else
-          return -1;
+          result = -1;
+        console.log('...getScriptVersion('+fileName+'):',result);
+        return result;
       },
-      getScriptIsOpen: (fileName: string) => this._scriptCache[fileName] ? true : false,
+      getScriptIsOpen: (fileName: string) => {
+        var result = this._scriptCache[fileName] ? true : false;
+        console.log('...getScriptIsOpen('+fileName+'):',result);
+        return result;
+      },
       getScriptByteOrderMark: (fileName: string) => ByteOrderMark.None,
       getScriptSnapshot: (fileName: string) => {
         var script = this._getScript(fileName);
-        if (script && script.getVersion)
+        if (script && script.getVersion) {
+          console.log('...getScriptSnapshot('+fileName+') from cache:',script);
           return script;
+        }
+
         this._scriptCache[fileName] = null;
+          console.log('...getScriptSnapshot('+fileName+') not cached, returning empty dummy');
         return TypeScriptService._emptySnapshot;
       },
       getDiagnosticsObject: () => {
@@ -142,7 +157,11 @@ class TypeScriptService {
       error: () => this.logLevels.error,
       fatal: () => this.logLevels.fatal,
       log: (text: string) => this._log(text),
-      resolveRelativePath: (path: string) => path,
+      resolveRelativePath: (path: string) => {
+        var result = path;
+        console.log('...resolveRelativePath('+path+'):', result);
+        return result;
+      },
       fileExists: (path: string) => {
         // don't issue a full resolve,
         // this might be a mere probe for a file

@@ -6683,6 +6683,11 @@ declare module TypeScript {
         RegularExpressionLiteral,
         NumericLiteral,
         NullLiteral,
+        AnyType,
+        BooleanType,
+        NumberType,
+        StringType,
+        VoidType,
         TypeParameter,
         GenericType,
         TypeRef,
@@ -6794,6 +6799,7 @@ declare module TypeScript {
         ExtendsHeritageClause,
         ImplementsHeritageClause,
         ElseClause,
+        LastNodeType,
     }
 }
 declare module TypeScript {
@@ -6838,7 +6844,6 @@ declare module TypeScript {
     interface IASTSpan {
         minChar: number;
         limChar: number;
-        trailingTriviaWidth: number;
     }
     class ASTSpan implements IASTSpan {
         public minChar: number;
@@ -6847,23 +6852,19 @@ declare module TypeScript {
     }
     function structuralEqualsNotIncludingPosition(ast1: AST, ast2: AST): boolean;
     function structuralEqualsIncludingPosition(ast1: AST, ast2: AST): boolean;
-    interface IAST extends IASTSpan {
-        nodeType(): TypeScript.NodeType;
-        astID: number;
-        getLength(): number;
-    }
-    class AST implements IAST {
+    class AST implements IASTSpan {
         public parent: AST;
         public minChar: number;
         public limChar: number;
         public trailingTriviaWidth: number;
         private _flags;
         public typeCheckPhase: number;
-        public astID: number;
+        private _astID;
         private _preComments;
         private _postComments;
         private _docComments;
         constructor();
+        public astID(): number;
         public fileName(): string;
         public nodeType(): TypeScript.NodeType;
         public isStatement(): boolean;
@@ -6970,18 +6971,12 @@ declare module TypeScript {
         private _text;
         private _valueText;
         public isStringOrNumericLiteral: boolean;
-        constructor(_text: string, _valueText: string, isStringOrNumericLiteral?: boolean);
+        constructor(_text: string, _valueText: string, isStringOrNumericLiteral: boolean);
         public text(): string;
         public valueText(): string;
         public nodeType(): TypeScript.NodeType;
-        public isMissing(): boolean;
         public emit(emitter: TypeScript.Emitter): void;
         public structuralEquals(ast: Identifier, includingPosition: boolean): boolean;
-    }
-    class MissingIdentifier extends Identifier {
-        constructor();
-        public isMissing(): boolean;
-        public emit(emitter: TypeScript.Emitter): void;
     }
     class LiteralExpression extends AST {
         private _nodeType;
@@ -7127,7 +7122,7 @@ declare module TypeScript {
         public emitWorker(emitter: TypeScript.Emitter): void;
         public structuralEquals(ast: VoidExpression, includingPosition: boolean): boolean;
     }
-    interface ICallExpression extends IAST {
+    interface ICallExpression extends IASTSpan {
         target: AST;
         typeArguments: ASTList;
         arguments: ASTList;
@@ -7568,6 +7563,12 @@ declare module TypeScript {
         public emit(emitter: TypeScript.Emitter): void;
         public structuralEquals(ast: TypeReference, includingPosition: boolean): boolean;
     }
+    class BuiltInType extends AST {
+        private _nodeType;
+        constructor(_nodeType: TypeScript.NodeType);
+        public nodeType(): TypeScript.NodeType;
+        public emit(emitter: TypeScript.Emitter): void;
+    }
     class TryStatement extends AST {
         public block: Block;
         public catchClause: CatchClause;
@@ -7643,28 +7644,17 @@ declare module TypeScript {
     function isRightSideOfQualifiedName(ast: AST): boolean;
 }
 declare module TypeScript {
-    interface IAstWalker {
-        walk(ast: TypeScript.AST): void;
-        options: AstWalkOptions;
-        state: any;
-    }
     class AstWalkOptions {
         public goChildren: boolean;
         public stopWalking: boolean;
     }
-    interface IAstWalkCallback {
-        (ast: TypeScript.AST, walker: IAstWalker): void;
-    }
-    interface IAstWalkChildren {
-        (preAst: TypeScript.AST, walker: IAstWalker): void;
+    interface IAstWalker {
+        options: AstWalkOptions;
+        state: any;
     }
     class AstWalkerFactory {
-        private childrenWalkers;
-        constructor();
-        public walk(ast: TypeScript.AST, pre: IAstWalkCallback, post?: IAstWalkCallback, options?: AstWalkOptions, state?: any): void;
-        public getWalker(pre: IAstWalkCallback, post?: IAstWalkCallback, options?: AstWalkOptions, state?: any): IAstWalker;
-        private getSlowWalker(pre, post?, options?, state?);
-        private initChildrenWalkers();
+        public walk(ast: TypeScript.AST, pre: (ast: TypeScript.AST, walker: IAstWalker) => void, post?: (ast: TypeScript.AST, walker: IAstWalker) => void, state?: any): void;
+        public simpleWalk(ast: TypeScript.AST, pre: (ast: TypeScript.AST, state: any) => void, post?: (ast: TypeScript.AST, state: any) => void, state?: any): void;
     }
     function getAstWalkerFactory(): AstWalkerFactory;
 }
@@ -8340,7 +8330,7 @@ declare module TypeScript {
         public addChildDecl(childDecl: PullDecl): void;
         public searchChildDecls(declName: string, searchKind: TypeScript.PullElementKind): PullDecl[];
         public getChildDecls(): PullDecl[];
-        public getTypeParameters(): any[];
+        public getTypeParameters(): PullDecl[];
         public addVariableDeclToGroup(decl: PullDecl): void;
         public getVariableDeclGroups(): PullDecl[][];
         public hasBeenBound(): boolean;
@@ -8446,7 +8436,7 @@ declare module TypeScript {
         public setResolved(): void;
         public startResolving(): void;
         public setUnresolved(): void;
-        public hasFlag(flag: TypeScript.PullElementFlags): boolean;
+        public anyDeclHasFlag(flag: TypeScript.PullElementFlags): boolean;
         public allDeclsHaveFlag(flag: TypeScript.PullElementFlags): boolean;
         public pathToRoot(): PullSymbol[];
         public findCommonAncestorPath(b: PullSymbol): PullSymbol[];
@@ -8479,7 +8469,6 @@ declare module TypeScript {
         public hasOptionalParam: boolean;
         public nonOptionalParamCount: number;
         public hasVarArgs: boolean;
-        public cachedObjectSpecialization: PullSignatureSymbol;
         public hasAGenericParameter: boolean;
         public hasBeenChecked: boolean;
         public inWrapCheck: boolean;
@@ -8771,14 +8760,13 @@ declare module TypeScript {
         public recordProvisionallyTypedSymbol(symbol: TypeScript.PullSymbol): void;
         public invalidateProvisionallyTypedSymbols(): void;
         public setSymbolForAST(ast: TypeScript.AST, symbol: TypeScript.PullSymbol): void;
-        public getSymbolForAST(ast: TypeScript.IAST): TypeScript.PullSymbol;
+        public getSymbolForAST(ast: TypeScript.AST): TypeScript.PullSymbol;
     }
     class PullTypeResolutionContext {
         private resolver;
         public inTypeCheck: boolean;
         public fileName: string;
         private contextStack;
-        public instantiatingTypesToAny: boolean;
         constructor(resolver: TypeScript.PullTypeResolver, inTypeCheck?: boolean, fileName?: string);
         public pushContextualType(type: TypeScript.PullTypeSymbol, provisional: boolean, substitutions: TypeScript.PullTypeSymbol[]): void;
         public popContextualType(): PullContextualTypeContext;
@@ -8794,7 +8782,7 @@ declare module TypeScript {
         public postDiagnostic(diagnostic: TypeScript.Diagnostic): void;
         public typeCheck(): boolean;
         public setSymbolForAST(ast: TypeScript.AST, symbol: TypeScript.PullSymbol): void;
-        public getSymbolForAST(ast: TypeScript.IAST): TypeScript.PullSymbol;
+        public getSymbolForAST(ast: TypeScript.AST): TypeScript.PullSymbol;
     }
 }
 declare module TypeScript {
@@ -8999,7 +8987,7 @@ declare module TypeScript {
         private typeCheckContinueStatement(ast, context);
         private resolveBreakStatement(ast, context);
         private typeCheckBreakStatement(ast, context);
-        public resolveAST(ast: TypeScript.AST, isContextuallyTyped: boolean, context: TypeScript.PullTypeResolutionContext, specializingSignature?: boolean): TypeScript.PullSymbol;
+        public resolveAST(ast: TypeScript.AST, isContextuallyTyped: boolean, context: TypeScript.PullTypeResolutionContext): TypeScript.PullSymbol;
         private typeCheckAST(ast, isContextuallyTyped, context);
         private processPostTypeCheckWorkItems(context);
         private postTypeCheck(ast, context);
@@ -9007,6 +8995,7 @@ declare module TypeScript {
         private postTypeCheckNameExpression(nameAST, context);
         private typeCheckNameExpression(nameAST, context);
         private resolveNameExpression(nameAST, context);
+        private isSomeFunctionScope(declPath);
         private computeNameExpression(nameAST, context, reportDiagnostics);
         private getCurrentParameterIndexForFunction(ast, funcDecl);
         private resolveMemberAccessExpression(dottedNameAST, context);
@@ -9067,13 +9056,14 @@ declare module TypeScript {
         private typeCheckObjectCreationExpression(callEx, context);
         private postOverloadResolutionDiagnostics(diagnostic, additionalResults, context);
         private computeObjectCreationExpressionSymbol(callEx, context, additionalResults);
+        private instantiateSignatureInContext(signatureA, signatureB, context);
         private resolveCastExpression(assertionExpression, context);
         private typeCheckCastExpression(assertionExpression, context, typeAssertionType);
         private resolveAssignmentExpression(binaryExpression, context);
         private getInstanceTypeForAssignment(lhs, type, context);
-        private mergeOrdered(a, b, context, comparisonInfo?);
-        public widenType(ast: TypeScript.AST, type: TypeScript.PullTypeSymbol, context: TypeScript.PullTypeResolutionContext): TypeScript.PullTypeSymbol;
-        public findBestCommonType(initialType: TypeScript.PullTypeSymbol, collection: IPullTypeCollection, context: TypeScript.PullTypeResolutionContext, comparisonInfo?: TypeComparisonInfo): TypeScript.PullTypeSymbol;
+        private chooseCommonType(a, b, context, comparisonInfo?);
+        public widenType(type: TypeScript.PullTypeSymbol, ast?: TypeScript.AST, context?: TypeScript.PullTypeResolutionContext): TypeScript.PullTypeSymbol;
+        public findBestCommonType(collection: IPullTypeCollection, context: TypeScript.PullTypeResolutionContext, comparisonInfo?: TypeComparisonInfo): TypeScript.PullTypeSymbol;
         public typesAreIdentical(t1: TypeScript.PullTypeSymbol, t2: TypeScript.PullTypeSymbol, val?: TypeScript.AST): boolean;
         private signatureGroupsAreIdentical(sg1, sg2);
         private signaturesAreIdentical(s1, s2, includingReturnType?);
@@ -9092,6 +9082,8 @@ declare module TypeScript {
         private signatureIsAssignableToTarget(s1, s2, context, comparisonInfo, isComparingInstantiatedSignatures?);
         private sourceIsRelatableToTarget(source, target, assignableTo, comparisonCache, context, comparisonInfo, isComparingInstantiatedSignatures);
         private sourceMembersAreRelatableToTargetMembers(source, target, assignableTo, comparisonCache, context, comparisonInfo, isComparingInstantiatedSignatures);
+        private infinitelyExpandingPropertyTypesAreEquivalent(source, target, sourceProp, targetProp, assignableTo, comparisonCache, context, comparisonInfo, isComparingInstantiatedSignatures);
+        private infinitelyExpandingPropertyTypesAreIdentical(source, target, sourceProp, targetProp);
         private sourcePropertyIsRelatableToTargetProperty(source, target, sourceProp, targetProp, assignableTo, comparisonCache, context, comparisonInfo, isComparingInstantiatedSignatures);
         private sourceCallSignaturesAreRelatableToTargetCallSignatures(source, target, assignableTo, comparisonCache, context, comparisonInfo, isComparingInstantiatedSignatures);
         private sourceConstructSignaturesAreRelatableToTargetConstructSignatures(source, target, assignableTo, comparisonCache, context, comparisonInfo, isComparingInstantiatedSignatures);
@@ -9114,7 +9106,6 @@ declare module TypeScript {
         private relateObjectTypeToTypeParameters(objectType, parameterType, shouldFix, argContext, context);
         private relateArrayTypeToTypeParameters(argArrayType, parameterArrayType, shouldFix, argContext, context);
         public instantiateTypeToAny(typeToSpecialize: TypeScript.PullTypeSymbol, context: TypeScript.PullTypeResolutionContext): TypeScript.PullTypeSymbol;
-        public instantiateSignatureToObject(signatureToSpecialize: TypeScript.PullSignatureSymbol): TypeScript.PullSignatureSymbol;
         static globalTypeCheckPhase: number;
         static typeCheck(compilationSettings: TypeScript.ImmutableCompilationSettings, semanticInfoChain: TypeScript.SemanticInfoChain, script: TypeScript.Script): void;
         private validateVariableDeclarationGroups(enclosingDecl, context);
@@ -9228,9 +9219,9 @@ declare module TypeScript {
         public invalidate(oldSettings?: TypeScript.ImmutableCompilationSettings, newSettings?: TypeScript.ImmutableCompilationSettings): void;
         private settingsChangeAffectsSyntax(before, after);
         public setSymbolForAST(ast: TypeScript.AST, symbol: TypeScript.PullSymbol): void;
-        public getSymbolForAST(ast: TypeScript.IAST): TypeScript.PullSymbol;
+        public getSymbolForAST(ast: TypeScript.AST): TypeScript.PullSymbol;
         public setAliasSymbolForAST(ast: TypeScript.AST, symbol: TypeScript.PullTypeAliasSymbol): void;
-        public getAliasSymbolForAST(ast: TypeScript.IAST): TypeScript.PullTypeAliasSymbol;
+        public getAliasSymbolForAST(ast: TypeScript.AST): TypeScript.PullTypeAliasSymbol;
         public getCallResolutionDataForAST(ast: TypeScript.AST): TypeScript.PullAdditionalCallResolutionData;
         public setCallResolutionDataForAST(ast: TypeScript.AST, callResolutionData: TypeScript.PullAdditionalCallResolutionData): void;
         public setSymbolForDecl(decl: TypeScript.PullDecl, symbol: TypeScript.PullSymbol): void;
@@ -9434,16 +9425,13 @@ declare module TypeScript {
         private compilationSettings;
         public position: number;
         public previousTokenTrailingComments: TypeScript.Comment[];
-        private static protoString;
-        private static protoSubstitutionString;
         constructor(fileName: string, lineMap: TypeScript.LineMap, compilationSettings: TypeScript.ImmutableCompilationSettings);
         static visit(syntaxTree: TypeScript.SyntaxTree, fileName: string, compilationSettings: TypeScript.ImmutableCompilationSettings, incrementalAST: boolean): TypeScript.Script;
         public movePast(element: TypeScript.ISyntaxElement): void;
         private moveTo(element1, element2);
         private setCommentsAndSpan(ast, fullStart, node);
-        private copySpan(from, to);
-        public setSpan(span: TypeScript.IASTSpan, fullStart: number, element: TypeScript.ISyntaxElement): void;
-        public setSpan2(span: TypeScript.IASTSpan, fullStart: number, element: TypeScript.ISyntaxElement, firstToken: TypeScript.ISyntaxToken, lastToken: TypeScript.ISyntaxToken): void;
+        public setTokenSpan(span: TypeScript.IASTSpan, fullStart: number, element: TypeScript.ISyntaxToken): void;
+        public setSpan(span: TypeScript.AST, fullStart: number, element: TypeScript.ISyntaxElement, firstToken?: TypeScript.ISyntaxToken, lastToken?: TypeScript.ISyntaxToken): void;
         public setSpanExplicit(span: TypeScript.IASTSpan, start: number, end: number): void;
         public identifierFromToken(token: TypeScript.ISyntaxToken, isOptional: boolean, stringLiteralIsTextOfIdentifier?: boolean): TypeScript.Identifier;
         public visitSyntaxList(node: TypeScript.ISyntaxList): TypeScript.ASTList;
@@ -9455,6 +9443,7 @@ declare module TypeScript {
         private convertTokenTrailingComments(token, commentStartPosition);
         private convertNodeTrailingComments(node, lastToken, nodeStart);
         public visitToken(token: TypeScript.ISyntaxToken): TypeScript.AST;
+        public visitTokenWorker(token: TypeScript.ISyntaxToken): TypeScript.AST;
         private getLeadingComments(node);
         private hasTopLevelImportOrExport(node);
         private getAmdDependency(comment);
@@ -9480,7 +9469,6 @@ declare module TypeScript {
         public visitEqualsValueClause(node: TypeScript.EqualsValueClauseSyntax): TypeScript.AST;
         private getUnaryExpressionNodeType(kind);
         public visitPrefixUnaryExpression(node: TypeScript.PrefixUnaryExpressionSyntax): TypeScript.PrefixUnaryExpression;
-        private isOnSingleLine(start, end);
         public visitArrayLiteralExpression(node: TypeScript.ArrayLiteralExpressionSyntax): TypeScript.ArrayLiteralExpression;
         public visitOmittedExpression(node: TypeScript.OmittedExpressionSyntax): TypeScript.OmittedExpression;
         public visitParenthesizedExpression(node: TypeScript.ParenthesizedExpressionSyntax): TypeScript.ParenthesizedExpression;
