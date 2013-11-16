@@ -359,7 +359,7 @@ var TypeScriptCodeHintProvider = (function () {
         this._hintRequest++;
 
         var doc = this._documentManager.getCurrentDocument();
-        var path = doc.file.fullPath;
+        var path = '' + doc.file.fullPath;
         var result = $.Deferred();
 
         var cursorPos = this._editor.getCursorPos();
@@ -392,11 +392,12 @@ var TypeScriptCodeHintProvider = (function () {
             var filteredEntries = x.entries.filter(function (e) {
                 return e.kind !== 'keyword' && e.kind !== 'primitive type';
             });
+            var convertedEntries = filteredEntries.map(function (e) {
+                return e.name + ' /*' + e.kindModifiers + '*' + e.kind + '*/';
+            });
 
             result.resolve({
-                hints: filteredEntries.map(function (e) {
-                    return e.kind === 'keyword' ? e.name : e.name + ' ' + e.kindModifiers + ' ' + e.kind;
-                })
+                hints: convertedEntries
             });
         });
 

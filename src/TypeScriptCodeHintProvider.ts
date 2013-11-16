@@ -34,7 +34,7 @@ class TypeScriptCodeHintProvider {
     this._hintRequest++;
 
     var doc = this._documentManager.getCurrentDocument();
-    var path = doc.file.fullPath;
+    var path = ''+(<any>doc.file).fullPath;
     var result = $.Deferred();
 
     var cursorPos = this._editor.getCursorPos();
@@ -66,12 +66,10 @@ class TypeScriptCodeHintProvider {
       console.log('completionPromise.done:',x);
 
       var filteredEntries = x.entries.filter((e) => e.kind!=='keyword' && e.kind!=='primitive type');
+      var convertedEntries = filteredEntries.map((e) => e.name + ' /*'+e.kindModifiers+'*'+e.kind+'*/');
 
       result.resolve({
-        hints: filteredEntries.map((e) =>
-          e.kind==='keyword' ?
-             e.name :
-             e.name+' '+e.kindModifiers + ' ' + e.kind)
+        hints: convertedEntries
       });
     });
 

@@ -402,11 +402,11 @@ declare module brackets {
 
 
     /**
-     * Creates an untitled document. The associated FileEntry has a fullPath
+     * Creates an untitled document. The associated File has a fullPath
      * looks like /some-random-string/Untitled-counter.fileExt.
      *
-     * @param counter - used in the name of the new Document's FileEntry
-     * @param fileExt - file extension of the new Document's FileEntry
+     * @param counter - used in the name of the new Document's File
+     * @param fileExt - file extension of the new Document's File
      * @return a new untitled Document
      */
     createUntitledDocument(counter: number, fileExt: string): brackets.Document;
@@ -415,10 +415,10 @@ declare module brackets {
 
   interface Document {
     /**
-     * The FileEntry for this document. Need not lie within the project.
+     * The File for this document. Need not lie within the project.
      * If Document is untitled, this is an InaccessibleFileEntry object.
      */
-    file: FileEntry;
+    file: File;
 
     /**
      * The Language for this document. Will be resolved by file extension in the constructor
@@ -532,7 +532,7 @@ declare module brackets {
      * @return whether or not the document is untitled
      */
     isUntitled(): boolean;
-    notifnotifySaved();
+    notifySaved();
 
   }
 
