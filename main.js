@@ -14,7 +14,7 @@ var TypeScriptService = (function () {
         this._requestedFiles = {};
         this._requestedFileCount = 0;
         this._requestContinuations = [];
-        var factory = new Services.TypeScriptServicesFactory();
+        var factory = new TypeScript.Services.TypeScriptServicesFactory();
         this._service = factory.createPullLanguageService(this._createLanguageServiceHost());
     }
     TypeScriptService.prototype.getCompletionsAtPosition = function (file, position, isMemberCompletion) {
@@ -97,26 +97,37 @@ var TypeScriptService = (function () {
                 return _this.compilationSettings;
             },
             getScriptFileNames: function () {
-                return Object.keys(_this._scriptCache);
+                var result = Object.keys(_this._scriptCache);
+                console.log('...getScriptFileNames():', result);
+                return result;
             },
             getScriptVersion: function (fileName) {
+                var result;
                 var script = _this._getScript(fileName);
                 if (script && script.getVersion)
-                    return script.getVersion();
+                    result = script.getVersion();
                 else
-                    return -1;
+                    result = -1;
+                console.log('...getScriptVersion(' + fileName + '):', result);
+                return result;
             },
             getScriptIsOpen: function (fileName) {
-                return _this._scriptCache[fileName] ? true : false;
+                var result = _this._scriptCache[fileName] ? true : false;
+                console.log('...getScriptIsOpen(' + fileName + '):', result);
+                return result;
             },
             getScriptByteOrderMark: function (fileName) {
                 return 0 /* None */;
             },
             getScriptSnapshot: function (fileName) {
                 var script = _this._getScript(fileName);
-                if (script && script.getVersion)
+                if (script && script.getVersion) {
+                    console.log('...getScriptSnapshot(' + fileName + ') from cache:', script);
                     return script;
+                }
+
                 _this._scriptCache[fileName] = null;
+                console.log('...getScriptSnapshot(' + fileName + ') not cached, returning empty dummy');
                 return TypeScriptService._emptySnapshot;
             },
             getDiagnosticsObject: function () {
@@ -146,7 +157,9 @@ var TypeScriptService = (function () {
                 return _this._log(text);
             },
             resolveRelativePath: function (path) {
-                return path;
+                var result = path;
+                console.log('...resolveRelativePath(' + path + '):', result);
+                return result;
             },
             fileExists: function (path) {
                 // don't issue a full resolve,
@@ -185,6 +198,7 @@ var TypeScriptService = (function () {
     return TypeScriptService;
 })();
 /// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/jquery.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 var DocumentState = (function () {
     function DocumentState(_doc) {
@@ -192,9 +206,9 @@ var DocumentState = (function () {
         this._doc = _doc;
         this._version = 0;
         this._changes = [];
-        $(this._doc).on('change', function (e, doc, change) {
+        $(this._doc).on('change', (function (e, doc, change) {
             return _this._onChange(change);
-        });
+        }));
     }
     /**
     * Not a part of IScriptSnapshot, unlike other public methods here.
@@ -294,6 +308,7 @@ var DocumentState = (function () {
     return DocumentState;
 })();
 /// <reference path='typings/brackets.d.ts' />
+/// <reference path='typings/jquery.d.ts' />
 /// <reference path='typings/typescriptServices.d.ts' />
 /// <reference path='DocumentState.ts' />
 var DocumentManagerScriptLoader = (function () {
@@ -315,6 +330,7 @@ var DocumentManagerScriptLoader = (function () {
     return DocumentManagerScriptLoader;
 })();
 /// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/jquery.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 /// <reference path='TypeScriptService.ts' />
 /// <reference path='DocumentManagerScriptLoader.ts' />
@@ -323,6 +339,7 @@ var TypeScriptCodeHintProvider = (function () {
         var _this = this;
         this._documentManager = _documentManager;
         this._service = new TypeScriptService();
+        this._hintRequest = 0;
         this._service.resolveScript = function (file) {
             return _this._resolveScript(file);
         };
@@ -332,11 +349,15 @@ var TypeScriptCodeHintProvider = (function () {
         if (this._editor !== editor) {
             this._editor = editor;
         }
+        this._hintRequest++;
 
         return !implicitChar;
     };
 
     TypeScriptCodeHintProvider.prototype.getHints = function (implicitChar) {
+        var _this = this;
+        this._hintRequest++;
+
         var doc = this._documentManager.getCurrentDocument();
         var path = doc.file.fullPath;
         var result = $.Deferred();
@@ -346,20 +367,37 @@ var TypeScriptCodeHintProvider = (function () {
 
         var logStr = 'getCompletionsAtPosition(' + index + ',' + path + ')...';
         if (cursorPos.ch > 0) {
-            logStr += ' // ' + doc.getRange({ line: cursorPos.line, ch: 0 }, cursorPos);
+            logStr += ' // ' + doc.getRange({ line: cursorPos.line, ch: 0 }, cursorPos) + '|';
         }
-
         console.log(logStr);
+
+        var rememberHintRequest = this._hintRequest;
+
         var completionPromise = this._service.getCompletionsAtPosition(path, index, false);
         completionPromise.done(function (x) {
-            console.log('completionPromise.done', x);
-            if (x) {
-                result.resolve({
-                    hints: x.entries.map(function (e) {
-                        return e.name + ' ' + e.kindModifiers + ' ' + e.kind;
-                    })
-                });
+            if (rememberHintRequest != _this._hintRequest) {
+                console.log('completionPromise.done out of time:', x);
+                result.reject();
+                return;
             }
+
+            if (!x) {
+                console.log('completionPromise.done: null');
+                result.reject();
+                return;
+            }
+
+            console.log('completionPromise.done:', x);
+
+            var filteredEntries = x.entries.filter(function (e) {
+                return e.kind !== 'keyword' && e.kind !== 'primitive type';
+            });
+
+            result.resolve({
+                hints: filteredEntries.map(function (e) {
+                    return e.kind === 'keyword' ? e.name : e.name + ' ' + e.kindModifiers + ' ' + e.kind;
+                })
+            });
         });
 
         return result;
@@ -376,6 +414,7 @@ var TypeScriptCodeHintProvider = (function () {
     return TypeScriptCodeHintProvider;
 })();
 /// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/jquery.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 /// <reference path='TypeScriptCodeHintProvider.ts' />
 var AppInit = brackets.getModule('utils/AppInit');

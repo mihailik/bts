@@ -126,7 +126,7 @@ function compileMain() {
 function importLatestTsc(callback) {
   importFiles(
     typescriptRepository+'/bin/',
-    ['tsc.js', 'typescriptServices.js', 'jquery.d.ts', 'lib.d.ts'],
+    ['tsc.js', 'typescriptServices.js', 'lib.d.ts'],
     'imports/typescript',
     callback);
 }
@@ -135,6 +135,11 @@ function importLatestCodeMirrorTypings(callback) {
   importFiles(
     definitelyTypedRepository+'/codemirror/', 
     ['codemirror.d.ts'],
+    'typings',
+    callback);
+  importFiles(
+    definitelyTypedRepository+'/jquery/', 
+    ['jquery.d.ts'],
     'typings',
     callback);
 }

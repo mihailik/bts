@@ -1,4 +1,5 @@
 /// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/jquery.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 
 /// <reference path='TypeScriptService.ts' />
@@ -48,7 +49,7 @@ class TypeScriptCodeHintProvider {
     var rememberHintRequest = this._hintRequest;
 
     var completionPromise = this._service.getCompletionsAtPosition(path, index, false);
-    completionPromise.done((x: Services.CompletionInfo) => {
+    completionPromise.done((x: TypeScript.Services.CompletionInfo) => {
 
       if (rememberHintRequest != this._hintRequest) {
         console.log('completionPromise.done out of time:',x);
@@ -61,11 +62,13 @@ class TypeScriptCodeHintProvider {
         result.reject();
         return;
       }
-
+    
       console.log('completionPromise.done:',x);
 
+      var filteredEntries = x.entries.filter((e) => e.kind!=='keyword' && e.kind!=='primitive type');
+
       result.resolve({
-        hints: x.entries.map((e) =>
+        hints: filteredEntries.map((e) =>
           e.kind==='keyword' ?
              e.name :
              e.name+' '+e.kindModifiers + ' ' + e.kind)

@@ -26,17 +26,17 @@ class TypeScriptService {
   private _requestedFileCount = 0;
   private _requestContinuations: { (): void; }[] = [];
   
-  private _service: Services.ILanguageService;
+  private _service: TypeScript.Services.ILanguageService;
 
   constructor() {
-    var factory = new Services.TypeScriptServicesFactory();
+    var factory = new TypeScript.Services.TypeScriptServicesFactory();
     this._service = factory.createPullLanguageService(this._createLanguageServiceHost());
   }
 
   getCompletionsAtPosition(
     file: string,
     position: number,
-    isMemberCompletion: boolean): JQueryPromise {
+    isMemberCompletion: boolean): JQueryPromise<any> {
 
     // make sure temporary empty scripts don't screw on a long position
     var existingScript = this._getScript(file);
@@ -135,7 +135,7 @@ class TypeScriptService {
         console.log('...getScriptIsOpen('+fileName+'):',result);
         return result;
       },
-      getScriptByteOrderMark: (fileName: string) => ByteOrderMark.None,
+      getScriptByteOrderMark: (fileName: string) => TypeScript.ByteOrderMark.None,
       getScriptSnapshot: (fileName: string) => {
         var script = this._getScript(fileName);
         if (script && script.getVersion) {

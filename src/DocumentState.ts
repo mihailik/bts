@@ -1,4 +1,5 @@
 /// <reference path='typings/typescriptServices.d.ts' />
+/// <reference path='typings/jquery.d.ts' />
 /// <reference path='typings/brackets.d.ts' />
 
 class DocumentState implements TypeScript.IScriptSnapshot {
@@ -7,7 +8,7 @@ class DocumentState implements TypeScript.IScriptSnapshot {
   private _changes: TypeScript.TextChangeRange[] = [];
 
   constructor(private _doc: brackets.Document) {
-    $(this._doc).on('change', (e,doc,change) => this._onChange(change));
+    $(this._doc).on('change', <any>((e,doc,change) => this._onChange(change)));
   }
 
   /**

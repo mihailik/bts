@@ -1,14 +1,3 @@
-/// <reference path='../imports/typescript/jquery.d.ts' />
-
-interface JQueryPromiseTyped<T> {
-  always(...alwaysCallbacks: any[]): JQueryDeferred;
-  done(...doneCallbacks: { (value: T): any; }[]): JQueryDeferred;
-  fail(...failCallbacks: { (error: Error): any; }[]): JQueryDeferred;
-  pipe(doneFilter?: (value: T) => any, failFilter?: (error: Error) => any, progressFilter?: (x: any) => any): JQueryPromise;
-  then(doneCallback: { (value: T): any; }, failCallbacks: { (error: Error); any; }, progressCallbacks?: any): JQueryDeferred;
-
-}
-
 declare module brackets {
   /**
    * Resolves a module (no file extension!) from either core stuff,
@@ -310,7 +299,7 @@ declare module brackets {
      * @param id The ID of the command to run.
      * @return a jQuery promise that will be resolved when the command completes.
      */
-    execute(id: string): JQueryPromise;
+    execute(id: string): JQueryPromise<any>;
 
   }
 
@@ -329,7 +318,7 @@ declare module brackets {
      *
      * @return a jQuery promise that will be resolved when the command completes.
      */
-    execute(...args: any[]): JQueryPromise;
+    execute(...args: any[]): JQueryPromise<any>;
 
     getEnabled(): boolean;
 
@@ -394,7 +383,7 @@ declare module brackets {
      * @return A promise object that will be resolved with the Document, or rejected
      *      with a NativeFileError if the file is not yet open and can't be read from disk.
      */
-    getDocumentForPath(fullPath: string): JQueryPromiseTyped<brackets.Document>;
+    getDocumentForPath(fullPath: string): JQueryPromise<brackets.Document>;
 
     /**
      * Returns the existing open Document for the given file, or null if the file is not open ('open'
@@ -650,7 +639,7 @@ declare module brackets {
      * to indicate the provider doesn't want to respond to this case.
      */
     registerInlineEditProvider(
-      provider: (editor: brackets.Editor, position: {line:number;ch:number;}) => JQueryPromiseTyped<brackets.InlineWidget>,
+      provider: (editor: brackets.Editor, position: {line:number;ch:number;}) => JQueryPromise<brackets.InlineWidget>,
       priority: number);
 
     /**
@@ -662,7 +651,7 @@ declare module brackets {
      * The provider returns a promise that will be resolved with an InlineWidget, or returns null
      * to indicate the provider doesn't want to respond to this case.
      */
-    registerInlineDocsProvider(provider: (editor: brackets.Editor, position: {line:number;ch:number}) => JQueryPromiseTyped<brackets.InlineWidget>, priority: number);
+    registerInlineDocsProvider(provider: (editor: brackets.Editor, position: {line:number;ch:number}) => JQueryPromise<brackets.InlineWidget>, priority: number);
 
     /**
      * Registers a new jump-to-definition provider. When jump-to-definition is invoked each
@@ -671,7 +660,7 @@ declare module brackets {
      * The provider returns a promise that will be resolved with jump-to-definition results, or
      * returns null to indicate the provider doesn't want to respond to this case.
      */
-    registerJumpToDefProvider(provider: (editor: brackets.Editor, position: {line:number;ch:number}) => JQueryPromiseTyped<brackets.InlineWidget>);
+    registerJumpToDefProvider(provider: (editor: brackets.Editor, position: {line:number;ch:number}) => JQueryPromise<brackets.InlineWidget>);
 
     getInlineEditors;
 
@@ -682,7 +671,7 @@ declare module brackets {
      * @param inlineWidget The inline widget to close.
      * @return A promise that's resolved when the widget is fully closed.
      */
-    closeInlineWidget(hostEditor: brackets.Editor, inlineWidget: brackets.InlineWidget): JQueryPromise;
+    closeInlineWidget(hostEditor: brackets.Editor, inlineWidget: brackets.InlineWidget): JQueryPromise<any>;
   }
 
 /**
@@ -908,7 +897,7 @@ declare module brackets {
     addInlineWidget(
       pos: {line:number;ch:number;},
       inlineWidget: brackets.InlineWidget,
-      scrollLineIntoView: boolean): JQueryPromise;
+      scrollLineIntoView: boolean): JQueryPromise<any>;
 
     /**
      * Removes all inline widgets
@@ -920,7 +909,7 @@ declare module brackets {
      * @param inlineWidget The widget to remove.
      * @return A promise that is resolved when the inline widget is fully closed and removed from the DOM.
      */
-    removeInlineWidget(inlineWidget: brackets.InlineWidget): JQueryPromise;
+    removeInlineWidget(inlineWidget: brackets.InlineWidget): JQueryPromise<any>;
 
     /**
      * Removes all inline widgets for a given line
